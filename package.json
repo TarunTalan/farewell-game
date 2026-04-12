@@ -1,0 +1,18 @@
+{
+  "name": "farewell-game",
+  "version": "1.0.0",
+  "description": "Operation Farewell — interactive farewell invitation game",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "^3.60.0",
+    "gsap": "^3.12.5",
+    "howler": "^2.2.4"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

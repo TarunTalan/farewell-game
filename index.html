@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a1a" />
+  <title>Operation Farewell — SI Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #0a0a1a;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    #game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      display: block;
+      /* Phaser manages canvas size */
+    }
+
+    /* ── Dialogue Overlay ──────────────────────────────────── */
+    #dialogue-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      justify-content: flex-end;
+      background: rgba(0,0,0,0.45);
+      font-family: 'Press Start 2P', monospace;
+    }
+    #dialogue-overlay.active { display: flex; }
+
+    #dialogue-portrait-area {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      bottom: 200px;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 24px 16px;
+      pointer-events: none;
+    }
+    #dialogue-portrait {
+      width: 160px;
+      height: 160px;
+      border-radius: 12px;
+      border: 3px solid #fff;
+      background: #1a1a2e;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 24px rgba(255,200,80,0.4);
+      flex-shrink: 0;
+    }
+    #dialogue-portrait img,
+    #dialogue-portrait svg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #dialogue-portrait .placeholder-face {
+      font-size: 72px;
+      line-height: 1;
+    }
+
+    #dialogue-box {
+      background: #0d0d1f;
+      border-top: 3px solid #f0c040;
+      border-bottom: none;
+      padding: 16px 20px 24px;
+      min-height: 200px;
+      position: relative;
+      cursor: pointer;
+    }
+    #dialogue-speaker {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: #f0c040;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    #dialogue-text {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      color: #e8e8f0;
+      line-height: 1.6;
+      min-height: 72px;
+    }
+    #dialogue-continue {
+      position: absolute;
+      bottom: 12px;
+      right: 20px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: #f0c040;
+      animation: blink 0.8s infinite;
+    }
+    #dialogue-choices {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .dialogue-choice-btn {
+      background: #1a1a3a;
+      border: 2px solid #3a3a6a;
+      color: #e8e8f0;
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      padding: 8px 16px;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .dialogue-choice-btn:hover, .dialogue-choice-btn:active {
+      border-color: #f0c040;
+      background: #2a2a4a;
+    }
+
+    /* ── Character Select Overlay ───────────────────────────── */
+    #charselect-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a1a;
+    }
+    #charselect-overlay.active { display: flex; }
+
+    #charselect-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      color: #f0c040;
+      margin-bottom: 8px;
+      text-align: center;
+      letter-spacing: 2px;
+    }
+    #charselect-subtitle {
+      font-family: 'VT323', monospace;
+      font-size: 20px;
+      color: #888;
+      margin-bottom: 24px;
+    }
+    #charselect-carousel {
+      width: 100%;
+      max-width: 380px;
+      overflow: hidden;
+      position: relative;
+      height: 320px;
+    }
+    #charselect-track {
+      display: flex;
+      transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      height: 100%;
+      align-items: center;
+    }
+    .senior-card {
+      min-width: 280px;
+      margin: 0 20px;
+      background: #12122a;
+      border: 2px solid #2a2a5a;
+      border-radius: 16px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      transition: border-color 0.2s, transform 0.2s;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .senior-card.active-card {
+      border-color: #f0c040;
+      transform: scale(1.04);
+    }
+    .senior-card .card-face {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: #1e1e3e;
+      border: 3px solid #3a3a7a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 52px;
+      overflow: hidden;
+    }
+    .senior-card .card-face img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .senior-card .card-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: #f0c040;
+      text-align: center;
+    }
+    .senior-card .card-title {
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      color: #a0a0d0;
+      text-align: center;
+    }
+    .senior-card .card-bio {
+      font-family: 'VT323', monospace;
+      font-size: 15px;
+      color: #606080;
+      text-align: center;
+      line-height: 1.4;
+    }
+    .senior-card .card-power {
+      font-family: 'VT323', monospace;
+      font-size: 14px;
+      color: #50d090;
+      background: #0a2a1a;
+      border: 1px solid #1a6a3a;
+      padding: 4px 10px;
+      border-radius: 4px;
+    }
+    #charselect-dots {
+      display: flex;
+      gap: 8px;
+      margin: 16px 0;
+    }
+    .charselect-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #2a2a5a;
+      transition: background 0.2s;
+    }
+    .charselect-dot.active { background: #f0c040; }
+    #charselect-confirm {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      background: #f0c040;
+      color: #0a0a1a;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: transform 0.1s;
+    }
+    #charselect-confirm:active { transform: scale(0.96); }
+    #charselect-arrows {
+      display: flex;
+      gap: 24px;
+      margin-top: 12px;
+    }
+    .arrow-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      background: #1a1a3a;
+      border: 2px solid #3a3a6a;
+      color: #e8e8f0;
+      width: 48px; height: 48px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── HUD ─────────────────────────────────────────────────── */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 50;
+      display: none;
+      padding: 10px 16px;
+      pointer-events: none;
+    }
+    #hud.active { display: flex; justify-content: space-between; align-items: flex-start; }
+    #hud-left { display: flex; flex-direction: column; gap: 4px; }
+    #hud-health-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: #f0c040;
+    }
+    #hud-health-bar-bg {
+      width: 140px; height: 12px;
+      background: #1a1a3a;
+      border: 1px solid #3a3a6a;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    #hud-health-bar {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #50d090, #30b070);
+      border-radius: 6px;
+      transition: width 0.3s, background 0.3s;
+    }
+    #hud-zone {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: #8080c0;
+      margin-top: 6px;
+    }
+    #hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    #hud-score {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: #f0c040;
+    }
+    #hud-power-indicator {
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+      color: #50d0ff;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #hud-power-indicator.active { opacity: 1; }
+
+    /* ── Power-up Flash ───────────────────────────────────────── */
+    #powerup-flash {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.7);
+      pointer-events: none;
+    }
+    #powerup-flash.active { display: flex; }
+    #powerup-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      color: #f0c040;
+      margin-bottom: 16px;
+      text-align: center;
+      animation: pulse 0.4s infinite alternate;
+    }
+    #powerup-juniors {
+      display: flex;
+      gap: 24px;
+    }
+    .powerup-junior {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      animation: flyIn 0.5s ease-out forwards;
+      opacity: 0;
+    }
+    .powerup-junior:nth-child(2) { animation-delay: 0.15s; }
+    .powerup-junior:nth-child(3) { animation-delay: 0.3s; }
+    .powerup-junior-face {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      border: 3px solid #f0c040;
+      background: #1a1a3e;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px;
+      overflow: hidden;
+    }
+    .powerup-junior-face img { width: 100%; height: 100%; object-fit: cover; }
+    .powerup-junior-name {
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+      color: #e8e8f0;
+    }
+
+    /* ── Zone Banner ──────────────────────────────────────────── */
+    #zone-banner {
+      position: fixed;
+      top: 50%;
+      left: 0; right: 0;
+      transform: translateY(-50%) translateX(-110%);
+      z-index: 70;
+      text-align: center;
+      padding: 20px;
+      pointer-events: none;
+      transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #zone-banner.show { transform: translateY(-50%) translateX(0); }
+    #zone-banner-inner {
+      display: inline-block;
+      background: #0d0d1f;
+      border: 3px solid #f0c040;
+      padding: 16px 32px;
+      border-radius: 8px;
+    }
+    #zone-banner-year {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: #f0c040;
+      margin-bottom: 6px;
+    }
+    #zone-banner-name {
+      font-family: 'VT323', monospace;
+      font-size: 28px;
+      color: #e8e8f0;
+    }
+
+    /* ── End Screen ───────────────────────────────────────────── */
+    #endscreen-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a1a;
+    }
+    #endscreen-overlay.active { display: flex; }
+    #endscreen-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      color: #f0c040;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    #endscreen-sub {
+      font-family: 'VT323', monospace;
+      font-size: 24px;
+      color: #a0a0d0;
+      margin-bottom: 32px;
+    }
+    #rsvp-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      background: #f0c040;
+      color: #0a0a1a;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    /* ── Video Screen ─────────────────────────────────────────── */
+    #video-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 150;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    #video-overlay.active { display: flex; }
+    #video-container {
+      width: 100%;
+      max-width: 640px;
+      position: relative;
+    }
+    #video-container iframe,
+    #video-container video {
+      width: 100%;
+      aspect-ratio: 16/9;
+      border: none;
+    }
+    #video-skip {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: #555;
+      background: none;
+      border: 1px solid #333;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+
+    /* ── Shared Animations ─────────────────────────────────────── */
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.05); }
+    }
+    @keyframes flyIn {
+      from { opacity: 0; transform: translateY(40px) scale(0.8); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- ── HUD ──────────────────────────────────────────────── -->
+  <div id="hud">
+    <div id="hud-left">
+      <div id="hud-health-label">HP</div>
+      <div id="hud-health-bar-bg">
+        <div id="hud-health-bar"></div>
+      </div>
+      <div id="hud-zone">Year 1 — Confusion Zone</div>
+    </div>
+    <div id="hud-right">
+      <div id="hud-score">SCORE: 0</div>
+      <div id="hud-power-indicator">⚡ JUNIOR SQUAD ACTIVE</div>
+    </div>
+  </div>
+
+  <!-- ── Zone Banner ────────────────────────────────────────── -->
+  <div id="zone-banner">
+    <div id="zone-banner-inner">
+      <div id="zone-banner-year">YEAR 2</div>
+      <div id="zone-banner-name">Lab Survival</div>
+    </div>
+  </div>
+
+  <!-- ── Dialogue Overlay ───────────────────────────────────── -->
+  <div id="dialogue-overlay">
+    <div id="dialogue-portrait-area">
+      <div id="dialogue-portrait">
+        <span class="placeholder-face">🧑</span>
+      </div>
+    </div>
+    <div id="dialogue-box" id="dialogue-box">
+      <div id="dialogue-speaker">JUNIOR</div>
+      <div id="dialogue-text"></div>
+      <div id="dialogue-choices"></div>
+      <div id="dialogue-continue">▼ tap</div>
+    </div>
+  </div>
+
+  <!-- ── Character Select ───────────────────────────────────── -->
+  <div id="charselect-overlay">
+    <div id="charselect-title">CHOOSE YOUR SENIOR</div>
+    <div id="charselect-subtitle">Swipe or tap arrows to browse</div>
+    <div id="charselect-carousel">
+      <div id="charselect-track"></div>
+    </div>
+    <div id="charselect-dots"></div>
+    <div id="charselect-arrows">
+      <button class="arrow-btn" id="arrow-prev">◀</button>
+      <button class="arrow-btn" id="arrow-next">▶</button>
+    </div>
+    <button id="charselect-confirm">SELECT THIS SENIOR</button>
+  </div>
+
+  <!-- ── Power-up Flash ────────────────────────────────────── -->
+  <div id="powerup-flash">
+    <div id="powerup-title">⚡ JUNIOR SQUAD SUMMONED! ⚡</div>
+    <div id="powerup-juniors"></div>
+  </div>
+
+  <!-- ── Video Overlay ─────────────────────────────────────── -->
+  <div id="video-overlay">
+    <div id="video-container">
+      <!-- Replace src with your YouTube embed URL or <video> tag -->
+      <iframe
+        id="farewell-video"
+        src="about:blank"
+        allow="autoplay; fullscreen"
+        allowfullscreen>
+      </iframe>
+    </div>
+    <button id="video-skip">skip →</button>
+  </div>
+
+  <!-- ── End Screen ────────────────────────────────────────── -->
+  <div id="endscreen-overlay">
+    <div id="endscreen-title">🎓 SEE YOU AT THE FAREWELL!</div>
+    <div id="endscreen-sub">You saved the juniors. Legends never leave.</div>
+    <button id="rsvp-btn">RSVP NOW</button>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
