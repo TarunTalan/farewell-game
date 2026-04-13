@@ -26,7 +26,7 @@ export const SENIORS = [
     power: '⚡ POWER: Auto-collects all nearby pickups',
     emoji: '😎',
     color: '#f0c040',
-    image: null,  // → replace with 'paras.jpg'
+    image: "paras.jpg",  // → replace with 'paras.jpg'
   },
   {
     id: 'lakshya_goel',
@@ -36,7 +36,7 @@ export const SENIORS = [
     power: '🛡️ POWER: Immune to bug swarms for 10s',
     emoji: '🧠',
     color: '#70d0ff',
-    image: null,
+    image: "lakshya_goel.png",
   },
   {
     id: 'lakshay_bansal',
@@ -46,7 +46,7 @@ export const SENIORS = [
     power: '📊 POWER: Stuns mini-bosses with slideshows',
     emoji: '📋',
     color: '#d070ff',
-    image: null,
+    image: "lakshay_bansal.png",
   },
   {
     id: 'lakshay',
@@ -56,7 +56,7 @@ export const SENIORS = [
     power: '🌀 POWER: Confuses enemies (they forget to attack)',
     emoji: '🌀',
     color: '#ff9070',
-    image: null,
+    image: "lakshay.png",
   },
   {
     id: 'harsh',
@@ -66,7 +66,7 @@ export const SENIORS = [
     power: '⏱️ POWER: Freezes all timers for 8s',
     emoji: '⚡',
     color: '#ff5050',
-    image: null,
+    image: "harsh.png",
   },
   {
     id: 'yash',
@@ -76,7 +76,7 @@ export const SENIORS = [
     power: '🎵 POWER: Music boost — doubles jump height',
     emoji: '🎵',
     color: '#50ff90',
-    image: null,
+    image: "yash.png",
   },
   {
     id: 'kavita',
@@ -86,7 +86,7 @@ export const SENIORS = [
     power: '📚 POWER: Reveals hidden paths & shortcuts',
     emoji: '📚',
     color: '#ff70b0',
-    image: null,
+    image: "kavita.png",
   },
   {
     id: 'ankit',
@@ -96,7 +96,7 @@ export const SENIORS = [
     power: '💻 POWER: Destroys all error obstacles instantly',
     emoji: '💻',
     color: '#70fff0',
-    image: null,
+    image: "ankit.png",
   },
   {
     id: 'rachit',
@@ -106,7 +106,7 @@ export const SENIORS = [
     power: '🚀 POWER: Speed boost — runs 2x faster',
     emoji: '🚀',
     color: '#ffa040',
-    image: null,
+    image: "rachit.png",
   },
   {
     id: 'aakarsh',
@@ -116,7 +116,7 @@ export const SENIORS = [
     power: '🔢 POWER: Optimal pathfinding — auto-dodges',
     emoji: '🔢',
     color: '#a0d0ff',
-    image: null,
+    image: "aakarsh.png",
   },
   {
     id: 'ayush',
@@ -126,6 +126,6 @@ export const SENIORS = [
     power: '📝 POWER: Double score for 15s',
     emoji: '📝',
     color: '#d0ff70',
-    image: null,
+    image: "ayush.png",
   },
 ]
