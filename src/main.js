@@ -4,6 +4,7 @@
 import Phaser from 'phaser'
 import { BootScene }    from './scenes/BootScene.js'
 import { PreludeScene } from './scenes/PreludeScene.js'
+import { LabScene }     from './scenes/LabScene.js'
 import { GameScene }    from './scenes/GameScene.js'
 
 // ── Responsive canvas size ────────────────────────────────────────────────────
@@ -18,23 +19,33 @@ const config = {
   height: H,
   backgroundColor: '#0a0a1a',
   parent: 'game-container',
+
   physics: {
     default: 'arcade',
     arcade: {
       gravity: { y: 900 },
-      debug: false,         // ← set true to see hitboxes during dev
+      debug: false, // ← set true to see hitboxes during dev
     },
   },
-  scene: [BootScene, PreludeScene, GameScene],
+
+  scene: [
+    BootScene,
+    PreludeScene,
+    LabScene,
+    GameScene
+  ],
+
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
+
   input: {
-    activePointers: 3,    // support multi-touch
+    activePointers: 3, // support multi-touch
   },
+
   render: {
-    antialias: false,     // pixel-perfect rendering
+    antialias: false, // pixel-perfect rendering
     pixelArt: true,
   },
 }
