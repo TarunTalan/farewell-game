@@ -384,9 +384,9 @@ export class PreludeScene extends Phaser.Scene {
     this._ceilingLight(W * 0.72, 0, W * 0.32)
 
     // Monitor wall glow blobs
-    const xSlots = [W * 0.15, W * 0.38, W * 0.62, W * 0.85]
+    const glowSlots = [W * 0.15, W * 0.38, W * 0.62, W * 0.85]
     const glowColors = [0x0a1a6a, 0x0a3a2a, 0x2a1a4a, 0x1a1a5a]
-    xSlots.forEach((x, i) => {
+    glowSlots.forEach((x, i) => {
       const gG = this.add.graphics()
       for (let r = 50; r > 0; r -= 5) {
         gG.fillStyle(glowColors[i], 0.018 * (1 - r / 50))
@@ -395,7 +395,7 @@ export class PreludeScene extends Phaser.Scene {
     })
 
     // Post-FX overlays
-    this._scanlines()
+    // this._scanlines()  // Removed obstructing scanlines
 
     // ── Title tag ────────────────────────────────────────────────────────────
     const topTag = this._txt(W / 2, H * 0.03, '[ SI LAB  //  CS DEPT  //  LATE NIGHT ]', 'mono', 8, '#1a1a4a')
@@ -415,6 +415,9 @@ export class PreludeScene extends Phaser.Scene {
     const deskY = H * 0.69
     const charY = H * 0.57
 
+    const xSlots = [W * 0.15, W * 0.38, W * 0.62, W * 0.85]
+    const charGlowColors = [0x0a1a6a, 0x0a6a1a, 0x6a0a1a, 0x6a1a0a]
+
     MEMBERS.forEach((m, i) => {
       const x     = xSlots[i]
       const delay = 800 + i * 200
@@ -422,7 +425,7 @@ export class PreludeScene extends Phaser.Scene {
       // Monitor glow behind monitor
       const mgG = this.add.graphics().setAlpha(0).setDepth(3)
       for (let r = 30; r > 0; r -= 4) {
-        mgG.fillStyle(glowColors[i], 0.04 * (1 - r / 30))
+        mgG.fillStyle(charGlowColors[i], 0.04 * (1 - r / 30))
         mgG.fillEllipse(x, deskY - 24, r * 3, r * 1.5)
       }
       // Monitor
@@ -451,14 +454,14 @@ export class PreludeScene extends Phaser.Scene {
       // Speech bubble
       this._timer(1800 + i * 320, () => {
         const bub = this._buildSpeechBubble(x, charY - 68, m.msg, m.color).setAlpha(0).setDepth(8)
-        this._tween(bub, { alpha: 1, y: charY - 74, duration: 260, ease: 'Back.out(1.7)' })
-        this._timer(2600, () => {
-          this._tween(bub, { alpha: 0, y: charY - 82, duration: 240, onComplete: () => bub.destroy() })
+        this._tween(bub, { alpha: 1, duration: 400 })  // Removed flying animation, just fade in
+        this._timer(3000, () => {  // Extended duration
+          this._tween(bub, { alpha: 0, duration: 400, onComplete: () => bub.destroy() })
         })
       })
     })
 
-    // Floating vibe text
+    // Floating vibe text (kept for speaking effect)
     this._timer(2600, () => this._spawnFloat(W * 0.50, H * 0.33, 'hahaha 😂',  '#447744'))
     this._timer(3100, () => this._spawnFloat(W * 0.27, H * 0.31, 'bhai 💀',    '#335577'))
     this._timer(3600, () => this._spawnFloat(W * 0.73, H * 0.32, 'chal bhai!', '#554433'))
@@ -489,8 +492,8 @@ export class PreludeScene extends Phaser.Scene {
       dG.lineStyle(2, 0x1a1a3a, 0.4)
       dG.lineBetween(0, H * 0.70, W, H * 0.70)
       this._ceilingLight(W * 0.22, 0, W * 0.38)
-      this._scanlines()
-      this._cornerVignette()
+      // this._scanlines()  // Removed
+      // this._cornerVignette()  // Removed
 
       // Emergency red atmospheric overlay
       const redAtm = this.add.rectangle(0, 0, W, H, 0xff0000, 0).setOrigin(0).setDepth(40)
@@ -586,8 +589,8 @@ export class PreludeScene extends Phaser.Scene {
     const { W, H } = this
 
     this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0)
-    this._scanlines()
-    this._cornerVignette()
+    // this._scanlines()  // Removed
+    // this._cornerVignette()  // Removed
     this._grain()
 
     // Subtle dark-red vignette
@@ -651,8 +654,8 @@ export class PreludeScene extends Phaser.Scene {
     const { W, H } = this
 
     this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0)
-    this._cornerVignette()
-    this._scanlines()
+    // this._cornerVignette()  // Removed
+    // this._scanlines()  // Removed
     this._grain()
 
     // Blood-red ambient
@@ -703,8 +706,8 @@ export class PreludeScene extends Phaser.Scene {
     const { W, H } = this
 
     this.add.rectangle(0, 0, W, H, 0x030008).setOrigin(0)
-    this._cornerVignette()
-    this._scanlines()
+    // this._cornerVignette()  // Removed
+    // this._scanlines()  // Removed
     this._grain()
 
     // Purple nebula centre
@@ -1010,9 +1013,9 @@ export class PreludeScene extends Phaser.Scene {
     const t = this._txt(x, y, text, 'mono', this._fs(2, 6, 10), color)
       .setOrigin(0.5).setAlpha(0).setDepth(12)
     this._tween(t, {
-      alpha: 1, y: y - 14, duration: 380, ease: 'Power2',
+      alpha: 1, y: y - 8, duration: 600, ease: 'Power1',  // Slower, less flying
       onComplete: () => {
-        this._tween(t, { alpha: 0, y: y - 42, duration: 650, delay: 550, ease: 'Power1', onComplete: () => t.destroy() })
+        this._tween(t, { alpha: 0, y: y - 20, duration: 800, delay: 800, ease: 'Power1', onComplete: () => t.destroy() })  // Longer delay
       }
     })
   }
