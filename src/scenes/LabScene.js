@@ -1458,8 +1458,3 @@ export class LabScene extends Phaser.Scene {
     return new THREE.Sprite(mat)
   }
 }
-
-
-
-
-
