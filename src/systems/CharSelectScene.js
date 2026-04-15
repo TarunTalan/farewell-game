@@ -1,252 +1,268 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// CharSelectScene.js — TAPE ROLLER senior character selection (REBUILT)
-// Infinite circular scroll, 3D depth staging, film tape holes, glow effects
+// CharSelectScene.js — Complete rebuild
+// Mobile-first. Warm amber/gold theme. Smooth momentum reel. Big readable cards.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Phaser from 'phaser'
 import { gameState } from '../data/GameState.js'
 import { SENIORS } from '../data/seniors.js'
 
-// Card dimensions
-const CARD_W   = 170
-const CARD_H   = 268
-const CARD_GAP = 28   // gap between cards (each side)
-const CARD_STEP = CARD_W + CARD_GAP * 2
-const TAPE_H   = 44
-const AVATAR_R = 36
 const N = SENIORS.length
+const CLONES = 3  // clones on each side for seamless infinite wrap
 
-// How many clones on each side for the infinite loop illusion
-const CLONES = 3
+// ── Per-card accent palette — vivid, distinct, no blue soup ──────────────────
+const CARD_ACCENTS = [
+  { bg: 0x1a0a00, border: 0xff6b00, text: '#ff6b00', glow: '#ff6b00' }, // Blazing Orange
+  { bg: 0x00001a, border: 0x3d9eff, text: '#3d9eff', glow: '#3d9eff' }, // Electric Blue
+  { bg: 0x0d001a, border: 0xc84bff, text: '#c84bff', glow: '#c84bff' }, // Vivid Purple
+  { bg: 0x001a0a, border: 0x00e676, text: '#00e676', glow: '#00e676' }, // Neon Green
+  { bg: 0x1a0000, border: 0xff2d55, text: '#ff2d55', glow: '#ff2d55' }, // Hot Pink-Red
+  { bg: 0x1a1400, border: 0xffd600, text: '#ffd600', glow: '#ffd600' }, // Pure Gold
+  { bg: 0x001a1a, border: 0x00e5ff, text: '#00e5ff', glow: '#00e5ff' }, // Cyan
+  { bg: 0x1a0a0a, border: 0xff5252, text: '#ff5252', glow: '#ff5252' }, // Coral Red
+  { bg: 0x0a1a00, border: 0x76ff03, text: '#76ff03', glow: '#76ff03' }, // Lime
+  { bg: 0x000d1a, border: 0x448aff, text: '#448aff', glow: '#448aff' }, // Sapphire
+  { bg: 0x1a001a, border: 0xf50057, text: '#f50057', glow: '#f50057' }, // Magenta
+]
 
 export class CharSelectScene extends Phaser.Scene {
   constructor() { super('CharSelectScene') }
 
-  // ─── State ────────────────────────────────────────────────────────────────
   create() {
     this.W = this.scale.width
     this.H = this.scale.height
 
-    this._index     = 0          // current real index [0, N-1]
-    this._scrolling = false
-    this._cardContainers = []    // all card container objects (clones + real)
-    this._holeTop   = []         // sprocket hole graphics top
-    this._holeBot   = []         // sprocket hole graphics bot
-    this._holeOffsetX = 0        // accumulated pixel offset for hole animation
-    this._stars     = []
+    // ── Mobile-responsive card sizing ─────────────────────────────────────────
+    this.CARD_W    = Math.round(Math.min(this.W * 0.72, 320))
+    this.CARD_H    = Math.round(this.CARD_W * 1.55)
+    this.CARD_STEP = Math.round(this.CARD_W * 0.58)
+    this.TAPE_H    = Math.round(this.H * 0.055)
+    this.AVATAR_R  = Math.round(this.CARD_W * 0.18)
 
-    this.cameras.main.fadeIn(600, 0, 0, 0)
+    this.REEL_Y    = this.H * 0.47
+    this.INFO_Y    = this.REEL_Y + this.CARD_H * 0.54 + this.TAPE_H + this.H * 0.035
+    this.BTN_Y     = this.H * 0.915
+
+    this._index        = 0
+    this._scrolling    = false
+    this._selStarted   = false
+    this._swipeStartX  = null
+    this._swipeStartY  = null
+    this._swipeT       = 0
+    this._holeOffset   = 0
+    this._holeObjects  = []
+    this._cardSlots    = []
+
+    this.cameras.main.fadeIn(500, 10, 10, 20)
 
     this._buildBG()
-    this._buildTape()
-    this._buildAllCards()
+    this._buildTapeRail()
+    this._buildCards()
     this._buildUI()
     this._buildInput()
-    this._applyCardStyles(false)
+    this._applyStyles(false)
     this._updateInfo()
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // BG — star field + grid + vignette
+  // BACKGROUND
   // ═══════════════════════════════════════════════════════════════════════════
   _buildBG() {
     const { W, H } = this
 
-    this.add.rectangle(0, 0, W, H, 0x06060f).setOrigin(0).setDepth(0)
+    this.add.rectangle(0, 0, W, H, 0x0e0b08).setOrigin(0).setDepth(0)
 
-    // Grid
-    const grid = this.add.graphics().setDepth(1).setAlpha(0.035)
-    grid.lineStyle(1, 0x6666ff, 1)
-    for (let x = 0; x < W; x += 60) grid.lineBetween(x, 0, x, H)
-    for (let y = 0; y < H; y += 60) grid.lineBetween(0, y, W, y)
+    // Warm horizontal grain lines
+    const grain = this.add.graphics().setDepth(1).setAlpha(0.06)
+    grain.lineStyle(1, 0xffcc77, 1)
+    for (let y = 0; y < H; y += 18) grain.lineBetween(0, y, W, y)
 
-    // Stars
-    for (let i = 0; i < 70; i++) {
-      const star = this.add.circle(
-        Math.random() * W, Math.random() * H,
-        Math.random() * 0.9 + 0.3,
-        0x9999ff,
-        Math.random() * 0.6 + 0.1
-      ).setDepth(2)
-      this._stars.push(star)
-      this.tweens.add({
-        targets: star,
-        alpha: Math.random() * 0.15,
-        duration: 2000 + Math.random() * 3000,
-        yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-        delay: Math.random() * 3000,
-      })
+    // Warm spotlight glow from top-center
+    const gfx = this.add.graphics().setDepth(2)
+    const cx = W / 2, cy = H * 0.3
+    for (let r = W * 1.2; r > 0; r -= W * 0.06) {
+      const t = r / (W * 1.2)
+      gfx.fillStyle(0xff9500, (1 - t) * 0.07)
+      gfx.fillCircle(cx, cy, r)
     }
 
-    // Vignette — radial darkening edges
+    // Floating ember particles
+    for (let i = 0; i < 22; i++) this._spawnParticle()
+
+    // Strong edge vignette
     const vig = this.add.graphics().setDepth(3)
-    const steps = 40
-    for (let i = 0; i < steps; i++) {
-      const t = i / steps
-      const alpha = t * t * 0.55
-      const rx = W * 0.5 * t
-      const ry = H * 0.5 * t
-      vig.fillStyle(0x000000, alpha / steps * 2)
-      // left
-      vig.fillRect(0, 0, rx, H)
-      vig.fillRect(W - rx, 0, rx, H)
-      vig.fillRect(0, 0, W, ry)
-      vig.fillRect(0, H - ry, W, ry)
+    for (let i = 0; i < 28; i++) {
+      const t  = i / 28
+      const a  = t * t * 0.7
+      const bx = W * t * 0.45
+      const by = H * t * 0.35
+      vig.fillStyle(0x000000, a / 28 * 1.8)
+      vig.fillRect(0, 0, bx, H)
+      vig.fillRect(W - bx, 0, bx, H)
+      vig.fillRect(0, 0, W, by)
+      vig.fillRect(0, H - by, W, by)
     }
 
     // Scanlines
-    const scan = this.add.graphics().setDepth(9000).setAlpha(0.04)
-    for (let y = 0; y < H; y += 3) {
+    const scan = this.add.graphics().setDepth(3).setAlpha(0.035)
+    for (let y = 0; y < H; y += 4) {
       scan.fillStyle(0x000000, 1)
       scan.fillRect(0, y, W, 1)
     }
 
-    // Corner decorations
-    this._drawCorner(10, 10,       1, 1)
-    this._drawCorner(W - 10, 10,  -1, 1)
-    this._drawCorner(10, H - 10,   1,-1)
-    this._drawCorner(W - 10, H-10,-1,-1)
-
     // Title
-    const titleText = this.add.text(W / 2, H * 0.055, 'LEGENDS CHOOSE', {
-      fontFamily: '"Orbitron", "Press Start 2P", monospace',
-      fontSize: this._fs(2.8, 14, 28),
-      fill: '#ffffff',
-      stroke: '#6666ff',
-      strokeThickness: 3,
-      letterSpacing: 6,
+    const titleY = H * 0.055
+    const titleSize = this._fs(6.5, 22, 42)
+    this.add.text(W / 2, titleY, 'Choose the senior', {
+      fontFamily:      '"Rajdhani", "Arial Black", sans-serif',
+      fontSize:        titleSize,
+      fontStyle:       'bold',
+      fill:            '#ffffff',
+      stroke:          '#ff6600',
+      strokeThickness: 2,
+      letterSpacing:   3,
+    }).setOrigin(0.5).setDepth(10).setShadow(0, 2, '#ff4400', 14, true)
+
+    this.add.text(W / 2, titleY + titleSize + 6, 'SWIPE  ·  TAP  ·  CONQUER', {
+      fontFamily:    '"Share Tech Mono", monospace',
+      fontSize:      this._fs(3, 10, 15),
+      fill:          '#b07040',
+      letterSpacing: 5,
     }).setOrigin(0.5).setDepth(10)
-    titleText.setShadow(0, 0, '#6666ff', 18, true)
 
-    this.add.text(W / 2, H * 0.115, '━━━  SELECT YOUR CHAMPION  ━━━', {
-      fontFamily: '"Share Tech Mono", monospace',
-      fontSize: this._fs(1.4, 7, 11),
-      fill: '#5577ff',
-      letterSpacing: 4,
-    }).setOrigin(0.5).setDepth(10).setAlpha(0.85)
+    const lineG = this.add.graphics().setDepth(10)
+    lineG.lineStyle(1, 0xff6600, 0.25)
+    lineG.lineBetween(W * 0.1, H * 0.145, W * 0.9, H * 0.145)
   }
 
-  _drawCorner(x, y, sx, sy) {
-    const g = this.add.graphics().setDepth(50)
-    g.lineStyle(2, 0x6666ff, 0.4)
-    g.beginPath()
-    g.moveTo(x, y + sy * 20)
-    g.lineTo(x, y)
-    g.lineTo(x + sx * 20, y)
-    g.strokePath()
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // TAPE RAIL — film strip top + bottom with sprocket holes
-  // ═══════════════════════════════════════════════════════════════════════════
-  _buildTape() {
+  _spawnParticle() {
     const { W, H } = this
-    const railY  = H * 0.5
-    const railH  = CARD_H + TAPE_H * 2
-    const topY   = railY - railH / 2
-    const botY   = railY + railH / 2
+    const colors = [0xff6600, 0xffaa00, 0xff4400, 0xffdd44]
+    const col    = colors[Math.floor(Math.random() * colors.length)]
+    const p      = this.add.circle(
+      Math.random() * W, H + 10,
+      Math.random() * 2.5 + 0.5,
+      col, Math.random() * 0.6 + 0.2
+    ).setDepth(4)
+    const dur = 4000 + Math.random() * 5000
+    this.tweens.add({
+      targets: p,
+      y: -20,
+      x: p.x + (Math.random() - 0.5) * 80,
+      alpha: 0,
+      duration: dur,
+      ease: 'Sine.easeIn',
+      delay: Math.random() * 3000,
+      repeat: -1,
+      onRepeat: () => {
+        p.x = Math.random() * W
+        p.y = H + 10
+        p.alpha = Math.random() * 0.6 + 0.2
+      },
+    })
+  }
 
-    // Dark tape body
-    this.add.rectangle(W / 2, railY, W, railH, 0x0a0a1a)
-      .setOrigin(0.5).setDepth(6)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAPE RAIL
+  // ═══════════════════════════════════════════════════════════════════════════
+  _buildTapeRail() {
+    const { W, REEL_Y, CARD_H, TAPE_H } = this
+    const topY = REEL_Y - CARD_H / 2 - TAPE_H
+    const botY = REEL_Y + CARD_H / 2
+
+    // Tape body behind cards
+    this.add.rectangle(W / 2, REEL_Y, W, CARD_H + TAPE_H * 2, 0x0a0804).setOrigin(0.5).setDepth(5)
 
     // Top strip
-    this.add.rectangle(W / 2, topY + TAPE_H / 2, W, TAPE_H, 0x0d0d1e)
-      .setOrigin(0.5).setDepth(7)
-    this.add.rectangle(W / 2, topY,        W, 1.5, 0x4488ff, 0.35).setOrigin(0.5, 0).setDepth(8)
-    this.add.rectangle(W / 2, topY+TAPE_H, W, 1.5, 0x4488ff, 0.35).setOrigin(0.5, 0).setDepth(8)
+    this.add.rectangle(W / 2, topY + TAPE_H / 2, W, TAPE_H, 0x140f08).setOrigin(0.5).setDepth(6)
+    this.add.rectangle(W / 2, topY,          W, 2, 0xff6600, 0.4).setOrigin(0.5, 0).setDepth(7)
+    this.add.rectangle(W / 2, topY + TAPE_H, W, 2, 0xff6600, 0.4).setOrigin(0.5, 0).setDepth(7)
 
-    // Bot strip
-    this.add.rectangle(W / 2, botY - TAPE_H / 2, W, TAPE_H, 0x0d0d1e)
-      .setOrigin(0.5).setDepth(7)
-    this.add.rectangle(W / 2, botY - TAPE_H,      W, 1.5, 0x4488ff, 0.35).setOrigin(0.5, 0).setDepth(8)
-    this.add.rectangle(W / 2, botY,               W, 1.5, 0x4488ff, 0.35).setOrigin(0.5, 0).setDepth(8)
+    // Bottom strip
+    this.add.rectangle(W / 2, botY + TAPE_H / 2, W, TAPE_H, 0x140f08).setOrigin(0.5).setDepth(6)
+    this.add.rectangle(W / 2, botY,          W, 2, 0xff6600, 0.4).setOrigin(0.5, 0).setDepth(7)
+    this.add.rectangle(W / 2, botY + TAPE_H, W, 2, 0xff6600, 0.4).setOrigin(0.5, 0).setDepth(7)
 
-    // Sprocket holes — generate enough to cover full width + overflow for scroll illusion
-    const holeW   = 20
-    const holeH   = 12
-    const holeGap = 36
-    const holeCount = Math.ceil(W / holeGap) + 6
-    const startX  = -holeGap * 2
+    // Sprocket holes
+    const holeW   = Math.round(TAPE_H * 0.55)
+    const holeH   = Math.round(TAPE_H * 0.38)
+    const holeGap = Math.round(holeW * 2.2)
+    const count   = Math.ceil(W / holeGap) + 8
+    const startX  = -holeGap * 3
+    const hy1     = topY + (TAPE_H - holeH) / 2
+    const hy2     = botY + (TAPE_H - holeH) / 2
 
-    this._holeTopContainer = this.add.container(0, 0).setDepth(9)
-    this._holeBotContainer = this.add.container(0, 0).setDepth(9)
+    for (let i = 0; i < count; i++) {
+      const bx = startX + i * holeGap
 
-    for (let i = 0; i < holeCount; i++) {
-      const hx = startX + i * holeGap
+      const gt = this.add.graphics().setDepth(8)
+      gt.fillStyle(0x060402, 1)
+      gt.fillRoundedRect(bx - holeW / 2, hy1, holeW, holeH, 3)
+      gt.lineStyle(1, 0x3a2510, 1)
+      gt.strokeRoundedRect(bx - holeW / 2, hy1, holeW, holeH, 3)
 
-      // Top hole
-      const ht = this.add.graphics()
-      ht.fillStyle(0x000000, 0.95)
-      ht.fillRoundedRect(hx - holeW/2, topY + (TAPE_H - holeH)/2, holeW, holeH, 3)
-      ht.lineStyle(1, 0x2a2a55, 0.6)
-      ht.strokeRoundedRect(hx - holeW/2, topY + (TAPE_H - holeH)/2, holeW, holeH, 3)
-      this._holeTopContainer.add(ht)
-      this._holeTop.push({ gfx: ht, baseX: hx })
+      const gb = this.add.graphics().setDepth(8)
+      gb.fillStyle(0x060402, 1)
+      gb.fillRoundedRect(bx - holeW / 2, hy2, holeW, holeH, 3)
+      gb.lineStyle(1, 0x3a2510, 1)
+      gb.strokeRoundedRect(bx - holeW / 2, hy2, holeW, holeH, 3)
 
-      // Bot hole
-      const hb = this.add.graphics()
-      hb.fillStyle(0x000000, 0.95)
-      hb.fillRoundedRect(hx - holeW/2, botY - TAPE_H + (TAPE_H - holeH)/2, holeW, holeH, 3)
-      hb.lineStyle(1, 0x2a2a55, 0.6)
-      hb.strokeRoundedRect(hx - holeW/2, botY - TAPE_H + (TAPE_H - holeH)/2, holeW, holeH, 3)
-      this._holeBotContainer.add(hb)
-      this._holeBot.push({ gfx: hb, baseX: hx })
+      this._holeObjects.push({ gt, gb, baseX: bx, holeGap })
     }
-  }
 
-  // Shift holes by pixel delta (wraps for infinite illusion)
-  _shiftHoles(deltaPx) {
-    const holeGap = 36
-    this._holeOffsetX += deltaPx
-    // keep offset in [0, holeGap) range for seamless wrap
-    this._holeOffsetX = ((this._holeOffsetX % holeGap) + holeGap) % holeGap
+    // Side fade masks — hide off-screen cards cleanly
+    const fadeW = Math.round(W * 0.16)
+    const fadeH = CARD_H + TAPE_H * 2 + 10
+    const fadeY = REEL_Y - fadeH / 2
 
-    const totalW = this.W + holeGap * 6
-    this._holeTop.forEach(h => {
-      const raw = h.baseX + this._holeOffsetX
-      const wrapped = ((raw % totalW) + totalW) % totalW - holeGap * 2
-      h.gfx.x = wrapped - h.baseX
+    ;[{ side: 'left', startX: 0 }, { side: 'right', startX: W - fadeW }].forEach(({ side, startX: fx }) => {
+      const fade = this.add.graphics().setDepth(50)
+      for (let step = 0; step < 20; step++) {
+        const t = step / 20
+        const a = side === 'left' ? (1 - t) * 0.96 : t * 0.96
+        const sx = side === 'left'
+          ? fx + step * (fadeW / 20)
+          : fx + (20 - step - 1) * (fadeW / 20)
+        fade.fillStyle(0x0a0804, a)
+        fade.fillRect(sx, fadeY, fadeW / 20 + 1, fadeH)
+      }
     })
-    this._holeBotContainer.x = this._holeTopContainer.x
+  }
+
+  _shiftHoles(px) {
+    if (!this._holeObjects.length) return
+    const { holeGap } = this._holeObjects[0]
+    this._holeOffset = ((this._holeOffset + px) % holeGap + holeGap) % holeGap
+    this._holeObjects.forEach(h => {
+      h.gt.x = this._holeOffset
+      h.gb.x = this._holeOffset
+    })
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CARDS — build [CLONES tail] + [real N] + [CLONES head] for infinite wrap
+  // CARDS
   // ═══════════════════════════════════════════════════════════════════════════
-  _buildAllCards() {
-    const { W, H } = this
-    this._cardContainers = []
-    this._cardRealIndices = []  // real SENIORS index for each card slot
+  _buildCards() {
+    const { W, REEL_Y } = this
+    const seq = []
+    for (let c = 0; c < CLONES; c++) seq.push(N - CLONES + c)
+    for (let i = 0; i < N; i++)      seq.push(i)
+    for (let c = 0; c < CLONES; c++) seq.push(c)
 
-    // Build sequence: tail clones, real, head clones
-    const sequence = []
-    for (let c = 0; c < CLONES; c++) sequence.push(N - CLONES + c)  // tail
-    for (let i = 0; i < N; i++) sequence.push(i)                     // real
-    for (let c = 0; c < CLONES; c++) sequence.push(c)                // head
+    seq.forEach((ri, si) => {
+      const x    = W / 2 + (si - CLONES) * this.CARD_STEP
+      const cont = this._makeCard(SENIORS[ri], ri, x, REEL_Y)
+      this._cardSlots.push({ container: cont, realIdx: ri })
 
-    const totalCards = sequence.length
-    const centerSlot = CLONES  // slot index of real card 0
-
-    sequence.forEach((realIdx, slotIdx) => {
-      const s      = SENIORS[realIdx]
-      const slotX  = W / 2 + (slotIdx - centerSlot) * CARD_STEP
-      const slotY  = H * 0.5
-      const cont   = this._buildCard(s, realIdx, slotX, slotY)
-      this._cardContainers.push(cont)
-      this._cardRealIndices.push(realIdx)
-
-      // Tap to select
       cont.setInteractive(
-        new Phaser.Geom.Rectangle(-CARD_W/2, -CARD_H/2, CARD_W, CARD_H),
+        new Phaser.Geom.Rectangle(-this.CARD_W / 2, -this.CARD_H / 2, this.CARD_W, this.CARD_H),
         Phaser.Geom.Rectangle.Contains
       )
       cont.on('pointerdown', () => {
-        if (realIdx === this._index) {
-          this._confirm()
-        } else {
-          let d = realIdx - this._index
-          if (d > N / 2)  d -= N
+        if (ri === this._index) { this._confirm() }
+        else {
+          let d = ri - this._index
+          if (d >  N / 2) d -= N
           if (d < -N / 2) d += N
           this._scroll(d)
         }
@@ -254,239 +270,328 @@ export class CharSelectScene extends Phaser.Scene {
     })
   }
 
-  _buildCard(s, realIdx, x, y) {
+  _makeCard(s, ri, x, y) {
+    const { CARD_W, CARD_H, AVATAR_R } = this
+    const ac   = CARD_ACCENTS[ri % CARD_ACCENTS.length]
     const cont = this.add.container(x, y).setDepth(15)
 
     // Shadow
-    const shadow = this.add.rectangle(4, 8, CARD_W, CARD_H, 0x000000, 0.7)
-    shadow.setOrigin(0.5)
+    const shadow = this.add.graphics()
+    shadow.fillStyle(0x000000, 0.55)
+    shadow.fillRoundedRect(-CARD_W / 2 + 6, -CARD_H / 2 + 10, CARD_W, CARD_H, 18)
 
     // Card body
     const body = this.add.graphics()
-    body.fillStyle(0x0a0a18, 1)
-    body.fillRect(-CARD_W/2, -CARD_H/2, CARD_W, CARD_H)
+    body.fillStyle(ac.bg, 1)
+    body.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 16)
 
-    // Border glow (drawn as thick stroke then inner thin)
+    // Subtle inner highlight (top half)
+    const highlight = this.add.graphics()
+    highlight.fillStyle(0xffffff, 0.04)
+    highlight.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H * 0.45, 16)
+
+    // Border outer + inner dim
     const border = this.add.graphics()
-    border.lineStyle(2.5, s.color, 0.9)
-    border.strokeRect(-CARD_W/2 + 1.5, -CARD_H/2 + 1.5, CARD_W - 3, CARD_H - 3)
-    border.lineStyle(1, s.color, 0.25)
-    border.strokeRect(-CARD_W/2 + 5, -CARD_H/2 + 5, CARD_W - 10, CARD_H - 10)
+    border.lineStyle(2.5, ac.border, 1)
+    border.strokeRoundedRect(-CARD_W / 2 + 1.5, -CARD_H / 2 + 1.5, CARD_W - 3, CARD_H - 3, 15)
+    border.lineStyle(1, ac.border, 0.18)
+    border.strokeRoundedRect(-CARD_W / 2 + 6, -CARD_H / 2 + 6, CARD_W - 12, CARD_H - 12, 12)
 
     // Top accent bar
-    const bar = this.add.rectangle(0, -CARD_H/2 + 5, CARD_W - 3, 9, s.color, 0.92)
-    bar.setOrigin(0.5)
-
-    // Card number
-    const accentColor = s.accent || s.color
-    const numTxt = this.add.text(
-      -CARD_W/2 + 8, -CARD_H/2 + 14,
-      String(realIdx + 1).padStart(2, '0'),
-      { fontFamily:'"Share Tech Mono",monospace', fontSize:8, fill:accentColor, fontStyle:'bold' }
+    const topBar = this.add.graphics()
+    topBar.fillStyle(ac.border, 0.95)
+    topBar.fillRoundedRect(
+      -CARD_W / 2 + 2, -CARD_H / 2 + 2,
+      CARD_W - 4, Math.round(CARD_H * 0.045),
+      { tl: 14, tr: 14, bl: 0, br: 0 }
     )
 
-    // Avatar zone
-    const avatarBg = this.add.circle(0, -CARD_H/2 + 68, AVATAR_R, s.color, 0.12)
-    const avatarGlow = this.add.circle(0, -CARD_H/2 + 68, AVATAR_R + 10, s.color, 0.07)
-    const avatarRing = this.add.graphics()
-    avatarRing.lineStyle(2, s.color, 0.7)
-    avatarRing.strokeCircle(0, -CARD_H/2 + 68, AVATAR_R)
-    avatarRing.lineStyle(1, s.color, 0.25)
-    avatarRing.strokeCircle(0, -CARD_H/2 + 68, AVATAR_R + 6)
+    // Number badge
+    const badgeW = Math.round(CARD_W * 0.2)
+    const badgeH = Math.round(CARD_H * 0.065)
+    const badgeY = -CARD_H / 2 + Math.round(CARD_H * 0.065)
+    const numBadge = this.add.graphics()
+    numBadge.fillStyle(ac.border, 0.2)
+    numBadge.fillRoundedRect(-CARD_W / 2 + 10, badgeY, badgeW, badgeH, 5)
 
-    // Avatar image or fallback letter
-    let avatar
-    let avatarLetter = null
+    const numTxt = this.add.text(
+      -CARD_W / 2 + 10 + badgeW / 2,
+      badgeY + badgeH / 2,
+      String(ri + 1).padStart(2, '0'),
+      { fontFamily: '"Share Tech Mono", monospace', fontSize: this._fs(3.5, 11, 16), fill: ac.text, fontStyle: 'bold' }
+    ).setOrigin(0.5)
+
+    // ── Avatar
+    const avatarY = -CARD_H / 2 + Math.round(CARD_H * 0.31)
+
+    const pulseRing = this.add.graphics()
+    pulseRing.lineStyle(1.5, ac.border, 0.18)
+    pulseRing.strokeCircle(0, avatarY, AVATAR_R + Math.round(AVATAR_R * 0.45))
+
+    const glowFill = this.add.circle(0, avatarY, AVATAR_R + 10, ac.border, 0.08)
+
+    const avatarCircle = this.add.graphics()
+    avatarCircle.fillStyle(ac.bg, 1)
+    avatarCircle.fillCircle(0, avatarY, AVATAR_R)
+    avatarCircle.lineStyle(3, ac.border, 0.9)
+    avatarCircle.strokeCircle(0, avatarY, AVATAR_R)
+
+    // Spinning dashed ring
+    const spinRing = this.add.graphics()
+    const dashCount = 12
+    const spinR = AVATAR_R + Math.round(AVATAR_R * 0.22)
+    for (let d = 0; d < dashCount; d++) {
+      const a1 = (d / dashCount) * Math.PI * 2
+      const a2 = a1 + (Math.PI * 2 / dashCount) * 0.55
+      spinRing.lineStyle(2, ac.border, 0.5)
+      spinRing.beginPath()
+      for (let p = 0; p <= 8; p++) {
+        const aa = a1 + (a2 - a1) * (p / 8)
+        const px2 = Math.cos(aa) * spinR
+        const py2 = Math.sin(aa) * spinR + avatarY
+        p === 0 ? spinRing.moveTo(px2, py2) : spinRing.lineTo(px2, py2)
+      }
+      spinRing.strokePath()
+    }
+    this.tweens.add({
+      targets: spinRing, angle: 360,
+      duration: 6000 + Math.random() * 3000,
+      repeat: -1, ease: 'Linear',
+    })
+
+    let avatarDisplay
     if (this.textures.exists(s.id)) {
-      avatar = this.add.image(0, -CARD_H/2 + 68, s.id)
-      avatar.setDisplaySize(AVATAR_R * 2, AVATAR_R * 2)
-      avatar.setOrigin(0.5)
-      const maskShape = this.make.graphics()
-      maskShape.fillCircle(0, 0, AVATAR_R)
-      const mask = maskShape.createGeometryMask()
-      avatar.setMask(mask)
+      avatarDisplay = this.add.image(0, avatarY, s.id)
+        .setDisplaySize(AVATAR_R * 2 - 4, AVATAR_R * 2 - 4).setOrigin(0.5)
     } else {
-      avatarLetter = this.add.text(0, -CARD_H/2 + 68, s.name[0], {
-        fontFamily:'"Orbitron","Press Start 2P",monospace',
-        fontSize: 22, fontWeight:'900', fill:'#ffffff',
-        stroke:'#000000', strokeThickness:1,
+      avatarDisplay = this.add.text(0, avatarY, s.name[0], {
+        fontFamily: '"Rajdhani", "Arial Black", sans-serif',
+        fontSize:   Math.round(AVATAR_R * 1.1),
+        fontStyle:  'bold',
+        fill:       '#ffffff',
       }).setOrigin(0.5)
-      avatarLetter.setShadow(0, 0, accentColor, 10, true)
-      avatar = avatarLetter
+      avatarDisplay.setShadow(0, 0, ac.glow, 16, true)
     }
 
-    // Spin ring animation on avatar
-    this.tweens.add({
-      targets: avatarRing,
-      angle: 360,
-      duration: 8000 + Math.random() * 4000,
-      repeat: -1,
-      ease: 'Linear',
-    })
+    // ── Name
+    const nameY    = -CARD_H / 2 + Math.round(CARD_H * 0.575)
+    const nameSize = this._fs(4.8, 16, 26)
+    const nameTxt  = this.add.text(0, nameY, s.name, {
+      fontFamily:      '"Rajdhani", "Arial Black", sans-serif',
+      fontSize:        nameSize,
+      fontStyle:       'bold',
+      fill:            '#ffffff',
+      align:           'center',
+      stroke:          '#000000',
+      strokeThickness: 1,
+    }).setOrigin(0.5)
+    nameTxt.setShadow(0, 1, ac.glow, 8, true)
 
-    // Name
-    const nameTxt = this.add.text(0, -CARD_H/2 + 116, s.name, {
-      fontFamily:'"Orbitron","Press Start 2P",monospace',
-      fontSize:8, fontWeight:'700', fill:'#ffffff',
-      stroke:'#000000', strokeThickness:1, align:'center', letterSpacing:2,
+    // ── Title/role
+    const titleY2   = nameY + nameSize + 5
+    const titleSize = this._fs(3, 10, 14)
+    const titleTxt  = this.add.text(0, titleY2, s.title.toUpperCase(), {
+      fontFamily:    '"Share Tech Mono", monospace',
+      fontSize:      titleSize,
+      fill:          ac.text,
+      align:         'center',
+      letterSpacing: 3,
     }).setOrigin(0.5)
 
-    // Title
-    const titleTxt = this.add.text(0, -CARD_H/2 + 132, '「 ' + s.title + ' 」', {
-      fontFamily:'"Share Tech Mono",monospace',
-      fontSize:7.5, fill:accentColor, align:'center',
-    }).setOrigin(0.5)
+    // ── Divider with diamond
+    const divY = titleY2 + titleSize + 10
+    const divG = this.add.graphics()
+    divG.lineStyle(1, ac.border, 0.35)
+    divG.lineBetween(-CARD_W * 0.38, divY, CARD_W * 0.38, divY)
+    const diamond = this.add.graphics()
+    diamond.fillStyle(ac.border, 0.8)
+    diamond.fillTriangle(0, divY - 4, 4, divY, 0, divY + 4)
+    diamond.fillTriangle(0, divY - 4, -4, divY, 0, divY + 4)
 
-    // Divider
-    const div = this.add.graphics()
-    div.lineStyle(1, s.color, 0.3)
-    div.lineBetween(-CARD_W/2 + 12, -CARD_H/2 + 146, CARD_W/2 - 12, -CARD_H/2 + 146)
-
-    // Description
-    const descTxt = this.add.text(0, -CARD_H/2 + 155, s.bio, {
-      fontFamily:'"Share Tech Mono",monospace',
-      fontSize:6.5, fill:'#8899bb', align:'center',
-      wordWrap:{ width: CARD_W - 18 },
-      lineSpacing:2,
+    // ── Bio
+    const bioY   = divY + 12
+    const bioTxt = this.add.text(0, bioY, s.bio || s.desc || '', {
+      fontFamily:  '"Share Tech Mono", monospace',
+      fontSize:    this._fs(2.8, 9, 13),
+      fill:        '#c8a882',
+      align:       'center',
+      wordWrap:    { width: CARD_W - Math.round(CARD_W * 0.18) },
+      lineSpacing: 4,
     }).setOrigin(0.5, 0)
 
-    // Stats
-    const statsY = CARD_H/2 - 30
-    const statCols = [
-      { label:'PWR', val:s.stat.power,  x:-52 },
-      { label:'SPD', val:s.stat.speed,  x:0   },
-      { label:'WIS', val:s.stat.wisdom, x:52  },
+    // ── Stats
+    const statsBaseY = CARD_H / 2 - Math.round(CARD_H * 0.16)
+    const barW       = Math.round(CARD_W * 0.24)
+    const barH       = Math.round(CARD_H * 0.022)
+    const statDefs   = [
+      { label: 'PWR', val: s.stat?.power  ?? 7, ox: -Math.round(CARD_W * 0.3) },
+      { label: 'SPD', val: s.stat?.speed  ?? 7, ox: 0                          },
+      { label: 'WIS', val: s.stat?.wisdom ?? 7, ox:  Math.round(CARD_W * 0.3) },
     ]
     const statEls = []
-    statCols.forEach(({ label, val, x:sx }) => {
-      const lbl = this.add.text(sx, statsY - 10, label, {
-        fontFamily:'"Share Tech Mono",monospace', fontSize:5.5,
-        fill:'#445566', fontStyle:'bold', align:'center',
-      }).setOrigin(0.5)
+    statDefs.forEach(({ label, val, ox }) => {
+      const lbl = this.add.text(ox, statsBaseY, label, {
+        fontFamily: '"Share Tech Mono", monospace',
+        fontSize:   this._fs(2.5, 8, 11),
+        fill:       '#7a6040',
+        fontStyle:  'bold',
+        align:      'center',
+      }).setOrigin(0.5, 1)
 
-      const barBg = this.add.graphics()
-      barBg.fillStyle(0x111122, 1)
-      barBg.fillRect(sx - 17, statsY - 1, 34, 5)
-      barBg.lineStyle(1, s.color, 0.25)
-      barBg.strokeRect(sx - 17, statsY - 1, 34, 5)
+      const by  = statsBaseY + 4
+      const bg2 = this.add.graphics()
+      bg2.fillStyle(0x000000, 0.5)
+      bg2.fillRoundedRect(ox - barW / 2, by, barW, barH, barH / 2)
 
-      const fillW = (34 * val) / 10
-      const barFill = this.add.graphics()
-      barFill.fillStyle(s.color, 0.85)
-      barFill.fillRect(sx - 17, statsY - 1, fillW, 5)
+      const fillW = Math.round(barW * Math.min(val, 10) / 10)
+      const fill  = this.add.graphics()
+      fill.fillStyle(ac.border, 0.9)
+      fill.fillRoundedRect(ox - barW / 2, by, fillW, barH, barH / 2)
 
-      statEls.push(lbl, barBg, barFill)
+      const valTxt = this.add.text(ox, by + barH + 3, String(val), {
+        fontFamily: '"Share Tech Mono", monospace',
+        fontSize:   this._fs(2.3, 7, 10),
+        fill:       ac.text,
+        align:      'center',
+      }).setOrigin(0.5, 0)
+
+      statEls.push(lbl, bg2, fill, valTxt)
     })
 
-    // Reflection overlay
-    const reflection = this.add.graphics()
-    reflection.fillStyle(0xffffff, 0.02)
-    reflection.fillRect(-CARD_W/2 + 2, -CARD_H/2 + 2, CARD_W - 4, CARD_H * 0.35)
+    // ── Tap hint (only visible on active card)
+    const tapHint = this.add.text(0, CARD_H / 2 - 14, 'TAP TO SELECT', {
+      fontFamily:    '"Share Tech Mono", monospace',
+      fontSize:      this._fs(2.4, 8, 11),
+      fill:          ac.text,
+      align:         'center',
+      letterSpacing: 4,
+    }).setOrigin(0.5, 1).setAlpha(0)
+    this.tweens.add({
+      targets: tapHint,
+      alpha:   { from: 0, to: 0.8 },
+      duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    })
+    cont._tapHint = tapHint
 
     cont.add([
-      shadow, body, border, bar,
-      avatarGlow, avatarBg, avatarRing,
-      numTxt, avatar, nameTxt, titleTxt, div, descTxt,
-      ...statEls, reflection,
+      shadow, body, highlight, border, topBar,
+      numBadge, numTxt,
+      pulseRing, glowFill, avatarCircle, spinRing, avatarDisplay,
+      nameTxt, titleTxt, divG, diamond, bioTxt,
+      ...statEls, tapHint,
     ])
-
-    cont._seniorData = s
+    cont._accent = ac
     return cont
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // UI — arrows, info panel, dots, confirm
+  // UI
   // ═══════════════════════════════════════════════════════════════════════════
   _buildUI() {
-    const { W, H } = this
+    const { W, H, INFO_Y, BTN_Y } = this
 
-    // Left arrow button (mobile-friendly, large tap target)
-    this._leftBtn  = this._makeNavBtn(W * 0.055, H * 0.5, '‹', -1)
-    this._rightBtn = this._makeNavBtn(W * 0.945, H * 0.5, '›',  1)
+    this._leftBtn  = this._navBtn(Math.round(W * 0.07), H * 0.47, '‹', -1)
+    this._rightBtn = this._navBtn(Math.round(W * 0.93), H * 0.47, '›',  1)
 
-    // ── Info panel ────────────────────────────────────────────────
-    this._infoName = this.add.text(W / 2, H * 0.795, '', {
-      fontFamily:'"Orbitron","Press Start 2P",monospace',
-      fontSize: this._fs(2.2, 13, 22),
-      fill:'#ffffff', stroke:'#000000', strokeThickness:1,
-      align:'center', letterSpacing:4,
+    // Name
+    this._infoName = this.add.text(W / 2, INFO_Y, '', {
+      fontFamily: '"Rajdhani", "Arial Black", sans-serif',
+      fontSize:   this._fs(6.5, 22, 36),
+      fontStyle:  'bold',
+      fill:       '#ffffff',
+      align:      'center',
     }).setOrigin(0.5).setDepth(100)
 
-    this._infoTitle = this.add.text(W / 2, H * 0.845, '', {
-      fontFamily:'"Share Tech Mono",monospace',
-      fontSize: this._fs(1.5, 8, 12),
-      fill:'#6688ff', align:'center', letterSpacing:3,
+    // Subtitle
+    this._infoSub = this.add.text(W / 2, INFO_Y + this._fs(6.5, 22, 36) + 6, '', {
+      fontFamily:    '"Share Tech Mono", monospace',
+      fontSize:      this._fs(3.2, 11, 16),
+      fill:          '#ff6600',
+      align:         'center',
+      letterSpacing: 4,
     }).setOrigin(0.5).setDepth(100)
 
-    // ── Dots ──────────────────────────────────────────────────────
-    this._dots = []
-    const dotSpacing = Math.min(14, W * 0.025)
-    const dotsTotalW = (N - 1) * dotSpacing
+    // Dots
+    this._dots      = []
+    const dotY      = INFO_Y + this._fs(6.5, 22, 36) + this._fs(3.2, 11, 16) + 22
+    const dotSpacing = Math.min(18, W * 0.035)
+    const dotsW     = (N - 1) * dotSpacing
     SENIORS.forEach((s, i) => {
-      const dx = W / 2 - dotsTotalW / 2 + i * dotSpacing
-      const dot = this.add.circle(dx, H * 0.755, 4, 0x1a1a2e, 1).setDepth(100)
-      dot.setStrokeStyle(1.5, 0x6666ff, 0.5)
-      dot.setInteractive({ useHandCursor: true })
+      const dot = this.add.circle(W / 2 - dotsW / 2 + i * dotSpacing, dotY, 5, 0x2a1a08, 1).setDepth(100)
+      dot.setStrokeStyle(1.5, 0x664422, 0.6)
+      dot.setInteractive()
       dot.on('pointerdown', () => {
         let d = i - this._index
-        if (d > N/2) d -= N
-        if (d < -N/2) d += N
+        if (d >  N / 2) d -= N
+        if (d < -N / 2) d += N
         this._scroll(d)
       })
       this._dots.push(dot)
     })
 
-    // ── Confirm button ────────────────────────────────────────────
-    const confirmBg = this.add.rectangle(W / 2, H * 0.925, 180, 44, 0x6666ff, 0.1)
-      .setStrokeStyle(2, 0x6666ff, 0.5).setDepth(100)
+    // Confirm button
+    this._confirmBg = this.add.graphics().setDepth(100)
+    this._drawConfirmBg(0xff6600, false)
 
-    this._confirmBtn = this.add.text(W / 2, H * 0.925, '★  SELECT  ★', {
-      fontFamily:'"Orbitron","Press Start 2P",monospace',
-      fontSize: this._fs(1.8, 9, 14),
-      fill:'#ffdd44', stroke:'#000000', strokeThickness:1,
-      align:'center', letterSpacing:3,
-    }).setOrigin(0.5).setDepth(101).setInteractive({ useHandCursor: true })
-    this._confirmBtn.setShadow(0, 0, '#ffaa00', 12, true)
-
-    this._confirmBtn.on('pointerdown', () => this._confirm())
-    this._confirmBtn.on('pointerover', () => {
-      this._confirmBtn.setStyle({ fill:'#ffffff' })
-      confirmBg.setFillStyle(0xffdd44, 0.2)
-      confirmBg.setStrokeStyle(2, 0xffdd44, 1)
-    })
-    this._confirmBtn.on('pointerout', () => {
-      this._confirmBtn.setStyle({ fill:'#ffdd44' })
-      confirmBg.setFillStyle(0x6666ff, 0.1)
-      confirmBg.setStrokeStyle(2, 0x6666ff, 0.5)
-    })
+    this._confirmTxt = this.add.text(W / 2, BTN_Y, '★  LOCK IN  ★', {
+      fontFamily:    '"Rajdhani", "Arial Black", sans-serif',
+      fontSize:      this._fs(5, 17, 24),
+      fontStyle:     'bold',
+      fill:          '#ffffff',
+      align:         'center',
+      letterSpacing: 2,
+    }).setOrigin(0.5).setDepth(101)
+    this._confirmTxt.setShadow(0, 2, '#ff4400', 10, true)
 
     this.tweens.add({
-      targets: this._confirmBtn,
-      scaleX:1.04, scaleY:1.04,
-      duration:950, yoyo:true, repeat:-1, ease:'Sine.easeInOut',
+      targets: this._confirmTxt,
+      scaleX: 1.03, scaleY: 1.03,
+      duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     })
+
+    const btnW = Math.min(Math.round(W * 0.65), 280)
+    const btnH = Math.round(H * 0.07)
+    this._confirmTxt.setInteractive(
+      new Phaser.Geom.Rectangle(-btnW / 2, -btnH / 2, btnW, btnH),
+      Phaser.Geom.Rectangle.Contains
+    )
+    this._confirmTxt.on('pointerdown', () => this._confirm())
   }
 
-  _makeNavBtn(x, y, glyph, dir) {
-    // Background
-    const bg = this.add.rectangle(x, y, 46, 80, 0x0a0a20, 0.8)
-      .setStrokeStyle(1.5, 0x6666ff, 0.35).setDepth(200)
+  _drawConfirmBg(color, hover) {
+    const { W, BTN_Y, H } = this
+    const btnW = Math.min(Math.round(W * 0.65), 280)
+    const btnH = Math.round(H * 0.07)
+    this._confirmBg.clear()
+    this._confirmBg.fillStyle(color, hover ? 0.3 : 0.15)
+    this._confirmBg.fillRoundedRect(W / 2 - btnW / 2, BTN_Y - btnH / 2, btnW, btnH, btnH / 2)
+    this._confirmBg.lineStyle(2.5, color, hover ? 1 : 0.7)
+    this._confirmBg.strokeRoundedRect(W / 2 - btnW / 2, BTN_Y - btnH / 2, btnW, btnH, btnH / 2)
+  }
+
+  _navBtn(x, y, glyph, dir) {
+    const size = Math.round(Math.min(this.W * 0.13, 56))
+
+    const bg = this.add.graphics().setDepth(200)
+    bg.fillStyle(0x1a0e04, 0.85)
+    bg.fillRoundedRect(x - size / 2, y - size * 0.9, size, size * 1.8, 10)
+    bg.lineStyle(1.5, 0xff6600, 0.4)
+    bg.strokeRoundedRect(x - size / 2, y - size * 0.9, size, size * 1.8, 10)
 
     const txt = this.add.text(x, y, glyph, {
-      fontFamily:'"Rajdhani","Orbitron",sans-serif',
-      fontSize: this._fs(4, 22, 42),
-      fill:'#6677ff', fontStyle:'bold',
+      fontFamily: '"Rajdhani", "Arial Black", sans-serif',
+      fontSize:   Math.round(size * 1.1),
+      fontStyle:  'bold',
+      fill:       '#ff6600',
     }).setOrigin(0.5).setDepth(201)
-    txt.setShadow(0, 0, '#4444ff', 8, true)
+    txt.setShadow(0, 0, '#ff4400', 10, true)
 
-    bg.setInteractive({ useHandCursor: true })
-    bg.on('pointerdown', () => this._scroll(dir))
-    bg.on('pointerover', () => { txt.setStyle({ fill:'#aabbff' }); bg.setFillStyle(0x2233aa, 0.3) })
-    bg.on('pointerout',  () => { txt.setStyle({ fill:'#6677ff' }); bg.setFillStyle(0x0a0a20, 0.8) })
-    bg.on('pointerdown', () => {
-      this.tweens.add({ targets:[bg,txt], scaleX:0.9, scaleY:0.9, duration:80, yoyo:true })
+    const tap = this.add.rectangle(x, y, size + 20, size * 2.2, 0x000000, 0).setDepth(202).setInteractive()
+    tap.on('pointerdown', () => {
+      this.tweens.add({ targets: txt, scaleX: 0.82, scaleY: 0.82, duration: 80, yoyo: true })
+      this._scroll(dir)
     })
-    return { bg, txt }
+    return { bg, txt, tap }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -500,155 +605,136 @@ export class CharSelectScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ENTER', () => this._confirm())
     this.input.keyboard.on('keydown-SPACE', () => this._confirm())
 
-    // Swipe
-    this.input.on('pointerdown', p => { this._swipeX = p.x })
-    this.input.on('pointerup',   p => {
-      if (this._swipeX === undefined) return
-      const dx = p.x - this._swipeX
-      if (Math.abs(dx) > 40) this._scroll(dx < 0 ? 1 : -1)
-      this._swipeX = undefined
+    this.input.on('pointerdown', p => {
+      this._swipeStartX = p.x
+      this._swipeStartY = p.y
+      this._swipeT      = Date.now()
+    })
+    this.input.on('pointerup', p => {
+      if (this._swipeStartX === null) return
+      const dx  = p.x - this._swipeStartX
+      const dy  = p.y - this._swipeStartY
+      const dt  = Date.now() - this._swipeT
+      const vel = Math.abs(dx) / Math.max(dt, 1)
+      if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 30) {
+        const steps = vel > 1.2 ? 2 : 1
+        this._scroll(dx < 0 ? steps : -steps)
+      }
+      this._swipeStartX = null
     })
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SCROLL — infinite circular, snaps back silently after edge wrap
+  // SCROLL
   // ═══════════════════════════════════════════════════════════════════════════
   _scroll(dir) {
     if (this._scrolling) return
     this._scrolling = true
 
-    // New real index (wraps)
-    const newIndex = ((this._index + dir) % N + N) % N
-    this._index = newIndex
+    this._index = ((this._index + dir) % N + N) % N
 
-    // Animate all cards
-    const duration = 400
-    const ease     = 'Back.out(1.1)'
+    const duration = Math.abs(dir) > 1 ? 520 : 380
+    const ease     = 'Cubic.easeOut'
 
-    this._cardContainers.forEach((cont, slotIdx) => {
-      // current x → target x
-      const currentSlotFromCenter = (cont.x - this.W / 2) / CARD_STEP
-      const targetSlotFromCenter  = currentSlotFromCenter - dir
-      const targetX = this.W / 2 + targetSlotFromCenter * CARD_STEP
-
+    this._cardSlots.forEach(({ container }) => {
       this.tweens.add({
-        targets: cont,
-        x: targetX,
+        targets: container,
+        x: container.x - dir * this.CARD_STEP,
         duration,
         ease,
       })
     })
 
-    // Animate holes
-    const holePx = dir * CARD_STEP
+    // Hole scroll
+    let lastV = 0
+    const totalPx = dir * this.CARD_STEP
     this.tweens.add({
       targets: { v: 0 },
-      v: holePx,
+      v: totalPx,
       duration,
-      ease: 'Cubic.out',
-      onUpdate: (tw) => {
-        const delta = tw.getValue() - (tw.getValue() - tw.targets[0].v)
-        this._shiftHoles(-dir * 2)
+      ease,
+      onUpdate: tw => {
+        const cur   = tw.targets[0].v
+        const delta = cur - lastV
+        lastV = cur
+        this._shiftHoles(delta)
       },
     })
 
-    // After animation: snap cards back to canonical positions (silent, no tween)
-    this.time.delayedCall(duration + 20, () => {
+    this._applyStyles(true)
+    this._updateInfo()
+
+    this.time.delayedCall(duration + 30, () => {
       this._repositionCards()
-      this._applyCardStyles(true)
-      this._updateInfo()
       this._scrolling = false
     })
-
-    // Start style update immediately for responsive feel
-    this._applyCardStyles(true)
-    this._updateInfo()
   }
 
-  // Snap all cards to their correct positions based on current _index, no animation
   _repositionCards() {
-    const { W } = this
-    const centerSlot = CLONES
-
-    // Rebuild sequence (same order as _buildAllCards)
-    const sequence = []
-    for (let c = 0; c < CLONES; c++) sequence.push(N - CLONES + c)
-    for (let i = 0; i < N; i++) sequence.push(i)
-    for (let c = 0; c < CLONES; c++) sequence.push(c)
-
-    this._cardContainers.forEach((cont, slotIdx) => {
-      const realIdx = sequence[slotIdx]
-      // position relative to currently selected card
-      const offsetFromSelected = slotIdx - (centerSlot + this._index)
-      cont.x = W / 2 + offsetFromSelected * CARD_STEP
+    const { W, CARD_STEP } = this
+    this._cardSlots.forEach(({ container }, si) => {
+      const offset = si - (CLONES + this._index)
+      container.x = W / 2 + offset * CARD_STEP
     })
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Card visual styles — scale, alpha, depth per distance from center
+  // CARD STYLES
   // ═══════════════════════════════════════════════════════════════════════════
-  _applyCardStyles(animated) {
-    const duration = animated ? 380 : 0
-    const ease     = 'Power3.out'
+  _applyStyles(animated) {
+    const dur  = animated ? 350 : 0
+    const ease = 'Power3.out'
 
-    this._cardContainers.forEach((cont, slotIdx) => {
-      const realIdx = this._cardRealIndices[slotIdx]
+    this._cardSlots.forEach(({ container, realIdx }) => {
       let d = Math.abs(realIdx - this._index)
       if (d > N / 2) d = N - d
 
-      const isActive = realIdx === this._index
+      const active  = realIdx === this._index
+      const scale   = active ? 1.0 : Math.max(0.62, 1 - d * 0.15)
+      const alpha   = active ? 1.0 : Math.max(0.18, 1 - d * 0.32)
+      const targetY = this.REEL_Y + (active ? -Math.round(this.CARD_H * 0.025) : d * 7)
 
-      const targetScaleX = isActive ? 1.1  : Math.max(0.55, 1 - d * 0.14)
-      const targetScaleY = isActive ? 1.1  : Math.max(0.55, 1 - d * 0.14)
-      const targetAlpha  = isActive ? 1.0  : Math.max(0.15, 1 - d * 0.3)
-      const targetY      = this.H * 0.5 + (isActive ? -8 : d * 5)
-      const targetDepth  = 20 - d
+      container.setDepth(active ? 25 : 20 - d)
+      if (container._tapHint) container._tapHint.setVisible(active)
 
-      cont.setDepth(targetDepth)
-
-      if (duration > 0) {
-        this.tweens.add({
-          targets: cont,
-          scaleX: targetScaleX,
-          scaleY: targetScaleY,
-          alpha:  targetAlpha,
-          y:      targetY,
-          duration,
-          ease,
-        })
+      if (dur > 0) {
+        this.tweens.add({ targets: container, scaleX: scale, scaleY: scale, alpha, y: targetY, duration: dur, ease })
       } else {
-        cont.setScale(targetScaleX, targetScaleY)
-        cont.setAlpha(targetAlpha)
-        cont.y = targetY
+        container.setScale(scale).setAlpha(alpha)
+        container.y = targetY
       }
     })
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Info panel + dots update
+  // INFO + DOTS
   // ═══════════════════════════════════════════════════════════════════════════
   _updateInfo() {
-    const s = SENIORS[this._index]
+    const s  = SENIORS[this._index]
+    const ac = CARD_ACCENTS[this._index % CARD_ACCENTS.length]
 
-    this._infoName.setText(s.name)
-    this._infoName.setStyle({ fill: s.accent })
-    this._infoName.setShadow(0, 0, s.accent, 16, true)
+    this.tweens.add({
+      targets: [this._infoName, this._infoSub],
+      alpha: 0, duration: 80, ease: 'Linear',
+      onComplete: () => {
+        this._infoName.setText(s.name)
+        this._infoName.setStyle({ fill: '#ffffff' })
+        this._infoName.setShadow(0, 1, ac.glow, 14, true)
+        this._infoSub.setText(s.title.toUpperCase())
+        this._infoSub.setStyle({ fill: ac.text })
+        this.tweens.add({ targets: [this._infoName, this._infoSub], alpha: 1, duration: 180 })
+      }
+    })
 
-    this._infoTitle.setText('「 ' + s.title + ' 』')
-    this._infoTitle.setStyle({ fill: s.accent })
+    this._drawConfirmBg(ac.border, false)
+    this._confirmTxt.setShadow(0, 2, ac.glow, 12, true)
 
     this._dots.forEach((dot, i) => {
       const active = i === this._index
-      this.tweens.add({
-        targets: dot,
-        scaleX: active ? 1.6 : 1,
-        scaleY: active ? 1.6 : 1,
-        alpha:  active ? 1   : 0.4,
-        duration: 280, ease:'Power2.out',
-      })
-      dot.setFillStyle(active ? s.color : 0x1a1a2e)
-      if (active) dot.setStrokeStyle(1.5, s.color, 0.9)
-      else        dot.setStrokeStyle(1.5, 0x6666ff, 0.35)
+      const dac    = CARD_ACCENTS[i % CARD_ACCENTS.length]
+      this.tweens.add({ targets: dot, scaleX: active ? 1.8 : 1, scaleY: active ? 1.8 : 1, alpha: active ? 1 : 0.45, duration: 250 })
+      dot.setFillStyle(active ? dac.border : 0x2a1a08)
+      dot.setStrokeStyle(1.5, active ? dac.border : 0x664422, active ? 1 : 0.5)
     })
   }
 
@@ -656,108 +742,50 @@ export class CharSelectScene extends Phaser.Scene {
   // CONFIRM
   // ═══════════════════════════════════════════════════════════════════════════
   _confirm() {
-    if (this._selectionStarted) return
-    this._selectionStarted = true
+    if (this._selStarted) return
+    this._selStarted = true
 
-    const selected = SENIORS[this._index]
-    gameState.selectedSenior = selected.id
-
-    // Disable further input
+    const s  = SENIORS[this._index]
+    const ac = CARD_ACCENTS[this._index % CARD_ACCENTS.length]
+    gameState.selectedSenior = s.id
     this.input.enabled = false
-    this._confirmBtn.disableInteractive()
-    this._leftBtn.bg.disableInteractive()
-    this._rightBtn.bg.disableInteractive()
-    this._dots.forEach(dot => dot.disableInteractive())
 
-    // Highlight the active card with a glowing ring and pulse
-    this._cardContainers.forEach((cont, slotIdx) => {
-      const isActive = this._cardRealIndices[slotIdx] === this._index
-      if (isActive) {
-        const glow = this.add.graphics().setDepth(30)
-        glow.lineStyle(4, selected.color, 0.65)
-        glow.strokeRoundedRect(-CARD_W/2 - 10, -CARD_H/2 - 10, CARD_W + 20, CARD_H + 20, 16)
-        cont.add(glow)
-
-        this.tweens.add({
-          targets: cont,
-          scaleX: 1.24,
-          scaleY: 1.24,
-          duration: 450,
-          yoyo: true,
-          repeat: 7,
-          ease: 'Sine.easeInOut',
-        })
-
-        this.tweens.add({
-          targets: glow,
-          alpha: 0.1,
-          duration: 900,
-          yoyo: true,
-          repeat: 7,
-          ease: 'Sine.easeInOut',
-        })
-      } else {
-        this.tweens.add({
-          targets: cont,
-          alpha: 0.15,
-          duration: 500,
-          ease: 'Power2.out',
-        })
+    // Dim non-active
+    this._cardSlots.forEach(({ container, realIdx }) => {
+      if (realIdx !== this._index) {
+        this.tweens.add({ targets: container, alpha: 0.06, duration: 600, ease: 'Power2.out' })
       }
     })
 
-    // Countdown text and status line
-    const countdown = this.add.text(this.W / 2, this.H * 0.82,
-      'LOCKING IN CHARACTER...  4', {
-      fontFamily:'"Orbitron","Press Start 2P",monospace',
-      fontSize: this._fs(1.8, 10, 18),
-      fill: '#ffffff', align:'center', letterSpacing: 2,
-      stroke:'#000000', strokeThickness:2,
-    }).setOrigin(0.5).setDepth(100)
-
-    const status = this.add.text(this.W / 2, this.H * 0.88,
-      'GET READY FOR LAUNCH', {
-      fontFamily:'"Share Tech Mono",monospace',
-      fontSize: this._fs(1.4, 8, 12),
-      fill: selected.color, align:'center', letterSpacing: 3,
-    }).setOrigin(0.5).setDepth(100)
-
-    let secondsLeft = 4
-    const timer = this.time.addEvent({
-      delay: 1000,
-      repeat: 4,
-      callback: () => {
-        secondsLeft -= 1
-        if (secondsLeft >= 0) {
-          countdown.setText('LOCKING IN CHARACTER...  ' + secondsLeft)
-        }
-      }
+    // Active card: pulse + glow ring
+    this._cardSlots.forEach(({ container, realIdx }) => {
+      if (realIdx !== this._index) return
+      this.tweens.add({ targets: container, scaleX: 1.12, scaleY: 1.12, duration: 300, yoyo: true, repeat: 5, ease: 'Sine.easeInOut' })
+      const ring = this.add.graphics().setDepth(30)
+      ring.lineStyle(5, ac.border, 0.7)
+      ring.strokeRoundedRect(-this.CARD_W / 2 - 8, -this.CARD_H / 2 - 8, this.CARD_W + 16, this.CARD_H + 16, 20)
+      container.add(ring)
+      this.tweens.add({ targets: ring, alpha: 0.15, duration: 500, yoyo: true, repeat: 5 })
     })
 
-    this._confirmBtn.setText('✓  LOCKED IN')
-    this._confirmBtn.setStyle({ fill:'#00ff88' })
-    this._confirmBtn.setShadow(0, 0, '#00ff88', 14, true)
+    this._confirmTxt.setText('✓  LOCKED IN!')
+    this._confirmTxt.setStyle({ fill: '#00ff88' })
+    this._confirmTxt.setShadow(0, 0, '#00ff88', 16, true)
+    this._drawConfirmBg(0x00cc66, true)
 
-    const overlay = this.add.rectangle(0, 0, this.W, this.H, 0x09101f, 0.18)
-      .setOrigin(0).setDepth(9998)
+    const flash = this.add.rectangle(0, 0, this.W, this.H, 0xffffff, 0).setOrigin(0).setDepth(9999)
+    this.tweens.add({ targets: flash, alpha: 0.22, duration: 80, yoyo: true })
 
-    this.tweens.add({
-      targets: overlay,
-      alpha: 0.28,
-      duration: 1800,
-      ease: 'Sine.easeInOut',
-    })
-
-    this.time.delayedCall(4500, () => {
-      this.cameras.main.fadeOut(900, 0, 0, 0)
-      this.time.delayedCall(900, () => this.scene.start('GameScene'))
+    this.time.delayedCall(1600, () => {
+      this.cameras.main.fadeOut(700, 0, 0, 0)
+      this.time.delayedCall(700, () => this.scene.start('GameScene'))
     })
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Utility
+  // UTILS
   // ═══════════════════════════════════════════════════════════════════════════
-  _fs(vw, minPx = 8, maxPx = 64) {
+  _fs(vw, minPx = 8, maxPx = 80) {
     return Math.max(minPx, Math.min(maxPx, Math.round(this.W * vw / 100)))
   }
 }
