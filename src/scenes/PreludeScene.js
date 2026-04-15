@@ -1,476 +1,764 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// PreludeScene.js  ·  Cinematic Story Intro — ENHANCED
-// Flow: SI Lab fun → 3 disappear → phone call → WHO ARE THEY? → LEGENDS reveal
+// PreludeScene.js  ·  Cinematic Story Intro — COMPLETE REWRITE
+// Pokemon-style dialogue · 3D-ish pixel characters · Smooth animations
+// Mobile-first · Portrait placeholders · Full effects
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { gameState } from '../data/GameState.js'
 
 // ─── Member data ──────────────────────────────────────────────────────────────
 const MEMBERS = [
-  { name: 'Divyansh',  color: 0x7b2fbe, shirt: 0x5a1a99, skin: 0xd4956a, hair: 0x1a0a00, msg: 'bhai yeh bug\nkyu aa raha hai??' },
-  { name: 'Sachi',     color: 0x2fb88a, shirt: 0x1a8866, skin: 0xe8c09a, hair: 0x0a0500, msg: 'kal submission\nhai bruh 😭' },
-  { name: 'Shivansh',  color: 0xe06010, shirt: 0xaa4400, skin: 0xc87941, hair: 0x080400, msg: 'chill karo\nchai pilo ☕' },
-  { name: 'Srayanash', color: 0xcc2222, shirt: 0x991111, skin: 0xd4956a, hair: 0x0d0600, msg: '404: motivation\nnot found 💀' },
+  {
+    name: 'Divyansh',
+    color: 0x7b2fbe, accent: '#a855f7',
+    skin: 0xc8825a, hair: 0x1a0800,
+    shirt: 0x4c1d95, pants: 0x1e1b4b,
+    msg: 'yaar yeh bug kyu\naa raha hai??',
+    role: 'THE BUG WHISPERER'
+  },
+  {
+    name: 'Sachi',
+    color: 0x059669, accent: '#10b981',
+    skin: 0xe0b080, hair: 0x100800,
+    shirt: 0x064e3b, pants: 0x1a2e24,
+    msg: 'kal submission\nhai bruh 😭',
+    role: 'THE DEADLINE CRUSHER'
+  },
+  {
+    name: 'Shivansh',
+    color: 0xc2410c, accent: '#f97316',
+    skin: 0xb87040, hair: 0x0d0500,
+    shirt: 0x7c2d12, pants: 0x2d1008,
+    msg: 'chill karo bhai\nchai pilo ☕',
+    role: 'THE ZEN MASTER'
+  },
+  {
+    name: 'Srayanash',
+    color: 0xb91c1c, accent: '#ef4444',
+    skin: 0xc8825a, hair: 0x150900,
+    shirt: 0x7f1d1d, pants: 0x2d0a0a,
+    msg: '404: motivation\nnot found 💀',
+    role: 'THE CHAOS AGENT'
+  },
+]
+
+// ─── Dialogue data ─────────────────────────────────────────────────────────
+const PHASE3_DIALOGUE = [
+  { speaker: 'UNKNOWN CALLER', text: 'Hum tere lab ke 3 bande le gaye hain...', portrait: null, color: '#ef4444', side: 'left'  },
+  { speaker: 'UNKNOWN CALLER', text: 'Ransom chahiye.\nSI LAB ke BEST bande bhejo... warna...', portrait: null, color: '#ef4444', side: 'left'  },
+  { speaker: 'DIVYANSH',       text: 'Best bande...?\nTum jaante nahi kya maang rahe ho.', portrait: 0, color: '#a855f7', side: 'right' },
+  { speaker: 'DIVYANSH',       text: 'Ab sirf ek hi option hai...', portrait: 0, color: '#a855f7', side: 'right' },
+  { speaker: 'DIVYANSH',       text: 'Unhe bulana padega.\n"THEY" ko.', portrait: 0, color: '#f59e0b', side: 'right' },
 ]
 
 export class PreludeScene extends Phaser.Scene {
   constructor() {
     super('PreludeScene')
-    this._tw  = []
-    this._tmr = []
+    this._tw   = []
+    this._tmr  = []
+    this._dialogueActive = false
+    this._dialogueQueue  = []
+    this._callEnded = false
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CREATE
+  // ═══════════════════════════════════════════════════════════════════════════
   create() {
     this.W = this.scale.width
     this.H = this.scale.height
-    this._generateTextures()
-    this.cameras.main.fadeIn(1200, 0, 0, 0)
+    this._buildAllTextures()
+    this.cameras.main.fadeIn(1400, 0, 0, 0)
     this._phase1_labScene()
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TEXTURE GENERATION
+  // TEXTURE BUILDERS
   // ═══════════════════════════════════════════════════════════════════════════
-  _generateTextures() {
-    MEMBERS.forEach((m, i) => this._makeCharSprite(m, `char_${i}`))
-    this._makeMonitorTexture()
-    this._makeChairTexture()
-    this._makePhoneTexture()
-    this._makeLabWallTexture()
-    this._makeLabFloorTexture()
-    this._makeDeskTexture()
+  _buildAllTextures() {
+    MEMBERS.forEach((m, i) => this._buildCharTexture(m, `char_${i}`))
+    this._buildMonitor()
+    this._buildDesk()
+    this._buildChair()
+    this._buildPhone()
+    this._buildParticle()
+    this._buildFloor()
+    this._buildWall()
   }
 
-  _makeCharSprite(m, key) {
+  // 3D-ish isometric-style character with shading, highlights, depth
+  _buildCharTexture(m, key) {
+    const CW = 64, CH = 96
     const g = this.add.graphics()
-    // Shadow
-    g.fillStyle(0x000000, 0.28)
-    g.fillEllipse(20, 69, 26, 6)
-    // Legs
-    g.fillStyle(0x111128)
-    g.fillRect(11, 48, 8, 18)
-    g.fillRect(21, 48, 8, 18)
-    // Leg crease
-    g.fillStyle(0x000000, 0.2)
-    g.fillRect(12, 48, 3, 18)
-    g.fillRect(22, 48, 3, 18)
-    // Shoes
-    g.fillStyle(0xe0e0e0)
-    g.fillRoundedRect(8,  62, 12, 6, 2)
-    g.fillRoundedRect(20, 62, 12, 6, 2)
-    g.fillStyle(0x888888, 0.4)
-    g.fillRect(8, 65, 12, 2)
-    g.fillRect(20, 65, 12, 2)
-    // Body / shirt
-    g.fillStyle(m.shirt)
-    g.fillRoundedRect(8, 26, 24, 24, 4)
-    // Shirt shadow left
-    g.fillStyle(0x000000, 0.18)
-    g.fillRoundedRect(8, 26, 9, 24, 4)
-    // Shirt highlight right
-    g.fillStyle(0xffffff, 0.04)
-    g.fillRoundedRect(22, 28, 8, 14, 3)
-    // Collar V
-    g.fillStyle(m.skin)
-    g.fillTriangle(14, 26, 20, 34, 26, 26)
-    // Colour strip on shirt
-    g.fillStyle(m.color, 0.55)
-    g.fillRect(10, 38, 20, 3)
-    // Arms
-    g.fillStyle(m.shirt)
-    g.fillRoundedRect(1, 28, 8, 16, 3)
-    g.fillRoundedRect(31, 28, 8, 16, 3)
-    g.fillStyle(0x000000, 0.15)
-    g.fillRoundedRect(1, 28, 4, 16, 3)
-    g.fillRoundedRect(35, 28, 3, 16, 3)
-    // Hands
-    g.fillStyle(m.skin)
-    g.fillCircle(5,  44, 5)
-    g.fillCircle(35, 44, 5)
-    // Knuckle lines
-    g.fillStyle(0x000000, 0.1)
-    g.fillRect(3, 43, 4, 1)
-    g.fillRect(33, 43, 4, 1)
-    // Head
-    g.fillStyle(m.skin)
-    g.fillCircle(20, 14, 12)
-    // Face shading
-    g.fillStyle(0x000000, 0.07)
-    g.fillCircle(22, 16, 10)
-    // Ear
-    g.fillStyle(m.skin)
-    g.fillCircle(9,  15, 3)
-    g.fillCircle(31, 15, 3)
-    // Eyes — whites
-    g.fillStyle(0xffffff)
-    g.fillRoundedRect(12, 10, 5, 5, 1)
-    g.fillRoundedRect(23, 10, 5, 5, 1)
-    // Irises
-    g.fillStyle(0x1a1a2a)
-    g.fillRect(13, 11, 3, 3)
-    g.fillRect(24, 11, 3, 3)
-    // Eye shine
-    g.fillStyle(0xffffff, 0.8)
-    g.fillRect(14, 11, 1, 1)
-    g.fillRect(25, 11, 1, 1)
-    // Eyebrows
-    g.fillStyle(m.hair)
-    g.fillRect(12, 8, 5, 2)
-    g.fillRect(23, 8, 5, 2)
-    // Nose dot
-    g.fillStyle(0x000000, 0.12)
-    g.fillCircle(20, 16, 2)
-    // Mouth
-    g.fillStyle(0x7a3a1a)
-    g.fillRoundedRect(16, 19, 8, 2, 1)
-    // Hair — solid cap
-    g.fillStyle(m.hair)
-    g.fillEllipse(20, 6, 26, 14)
-    g.fillRect(8,  6, 24, 7)
-    g.fillRect(8,  3, 8,  9)
-    g.fillRect(24, 3, 8,  9)
-    // Hair highlight
-    g.fillStyle(0xffffff, 0.06)
-    g.fillEllipse(16, 4, 12, 6)
 
-    g.generateTexture(key, 40, 72)
+    // ── Shadow ──────────────────────────────────────────────────────────────
+    g.fillStyle(0x000000, 0.35)
+    g.fillEllipse(CW/2, CH - 4, 44, 10)
+
+    // ── Shoes ───────────────────────────────────────────────────────────────
+    const shoeColor = 0xe8e8e8
+    // Left shoe — 3D effect with top/side face
+    g.fillStyle(0x555555)
+    g.fillRoundedRect(10, CH-17, 18, 9, 2)   // left side face
+    g.fillStyle(shoeColor)
+    g.fillRoundedRect(9, CH-21, 18, 9, 2)    // left top face
+    g.fillStyle(0xaaaaaa, 0.5)
+    g.fillRect(9, CH-21, 18, 3)              // shoe highlight
+    // Right shoe
+    g.fillStyle(0x555555)
+    g.fillRoundedRect(36, CH-17, 18, 9, 2)
+    g.fillStyle(shoeColor)
+    g.fillRoundedRect(35, CH-21, 18, 9, 2)
+    g.fillStyle(0xaaaaaa, 0.5)
+    g.fillRect(35, CH-21, 18, 3)
+
+    // ── Legs ────────────────────────────────────────────────────────────────
+    const pantsLight = Phaser.Display.Color.IntegerToColor(m.pants)
+    const pantsDark  = { r: Math.max(0,pantsLight.r-30), g: Math.max(0,pantsLight.g-30), b: Math.max(0,pantsLight.b-30) }
+    // Left leg
+    g.fillStyle(m.pants)
+    g.fillRect(13, CH-42, 14, 24)
+    g.fillStyle(Phaser.Display.Color.GetColor(pantsDark.r,pantsDark.g,pantsDark.b), 0.5)
+    g.fillRect(13, CH-42, 5, 24)  // shadow side
+    g.fillStyle(0xffffff, 0.08)
+    g.fillRect(20, CH-42, 3, 24)  // highlight
+    // Right leg
+    g.fillStyle(m.pants)
+    g.fillRect(37, CH-42, 14, 24)
+    g.fillStyle(Phaser.Display.Color.GetColor(pantsDark.r,pantsDark.g,pantsDark.b), 0.5)
+    g.fillRect(37, CH-42, 5, 24)
+    g.fillStyle(0xffffff, 0.08)
+    g.fillRect(44, CH-42, 3, 24)
+    // Belt
+    g.fillStyle(0x222222)
+    g.fillRect(13, CH-44, 38, 4)
+    g.fillStyle(0x888888, 0.6)
+    g.fillRect(29, CH-44, 6, 4)   // buckle
+
+    // ── Body / Shirt ─────────────────────────────────────────────────────────
+    const shirtLight = Phaser.Display.Color.IntegerToColor(m.shirt)
+    const shirtMid   = { r: Math.max(0,shirtLight.r+15), g: Math.max(0,shirtLight.g+15), b: Math.max(0,shirtLight.b+15) }
+    const shirtDark  = { r: Math.max(0,shirtLight.r-20), g: Math.max(0,shirtLight.g-20), b: Math.max(0,shirtLight.b-20) }
+
+    // Body cube — right face (darker)
+    g.fillStyle(Phaser.Display.Color.GetColor(shirtDark.r,shirtDark.g,shirtDark.b))
+    g.fillRect(50, CH-72, 6, 30)
+    // Body cube — front face
+    g.fillStyle(m.shirt)
+    g.fillRoundedRect(12, CH-74, 40, 32, 3)
+    // Left shadow
+    g.fillStyle(Phaser.Display.Color.GetColor(shirtDark.r,shirtDark.g,shirtDark.b), 0.55)
+    g.fillRoundedRect(12, CH-74, 12, 32, 3)
+    // Chest highlight
+    g.fillStyle(0xffffff, 0.10)
+    g.fillRoundedRect(28, CH-72, 16, 12, 2)
+    // Collar
+    g.fillStyle(m.skin)
+    g.fillTriangle(26, CH-74, 32, CH-60, 38, CH-74)
+    g.fillStyle(0x000000, 0.15)
+    g.fillTriangle(26, CH-74, 29, CH-68, 35, CH-74)
+    // Colour accent stripe
+    g.fillStyle(m.color, 0.85)
+    g.fillRect(13, CH-52, 39, 4)
+    g.fillStyle(0xffffff, 0.12)
+    g.fillRect(13, CH-52, 39, 1)
+
+    // ── Arms ─────────────────────────────────────────────────────────────────
+    // Left arm (closer, lighter)
+    g.fillStyle(m.shirt)
+    g.fillRoundedRect(2, CH-72, 12, 22, 4)
+    g.fillStyle(0xffffff, 0.12)
+    g.fillRoundedRect(2, CH-72, 4, 22, 4)
+    g.fillStyle(0x000000, 0.18)
+    g.fillRoundedRect(9, CH-72, 5, 22, 4)
+    // Right arm
+    g.fillStyle(Phaser.Display.Color.GetColor(shirtDark.r,shirtDark.g,shirtDark.b))
+    g.fillRoundedRect(50, CH-72, 12, 22, 4)
+    g.fillStyle(0x000000, 0.22)
+    g.fillRoundedRect(56, CH-72, 6, 22, 4)
+    // Hands
+    const skinDark = { r: Math.max(0,((m.skin>>16)&0xff)-20), g: Math.max(0,((m.skin>>8)&0xff)-20), b: Math.max(0,(m.skin&0xff)-20) }
+    g.fillStyle(m.skin)
+    g.fillCircle(8,  CH-49, 7)
+    g.fillCircle(56, CH-49, 7)
+    g.fillStyle(Phaser.Display.Color.GetColor(skinDark.r,skinDark.g,skinDark.b), 0.4)
+    g.fillCircle(11, CH-51, 5)
+    g.fillCircle(59, CH-51, 5)
+    // Knuckles
+    g.fillStyle(0x000000, 0.12)
+    for (let k = 0; k < 3; k++) {
+      g.fillRect(5 + k*2, CH-47, 1, 2)
+      g.fillRect(53 + k*2, CH-47, 1, 2)
+    }
+
+    // ── Neck ────────────────────────────────────────────────────────────────
+    g.fillStyle(m.skin)
+    g.fillRect(27, CH-80, 10, 8)
+    g.fillStyle(Phaser.Display.Color.GetColor(skinDark.r,skinDark.g,skinDark.b), 0.35)
+    g.fillRect(27, CH-80, 4, 8)
+
+    // ── Head ─────────────────────────────────────────────────────────────────
+    // Head shadow side (right)
+    g.fillStyle(Phaser.Display.Color.GetColor(skinDark.r,skinDark.g,skinDark.b))
+    g.fillRoundedRect(37, CH-110, 12, 32, 5)
+    // Head front
+    g.fillStyle(m.skin)
+    g.fillRoundedRect(16, CH-112, 32, 34, 5)
+    // Cheek highlight
+    g.fillStyle(0xffffff, 0.12)
+    g.fillCircle(22, CH-95, 7)
+    // Cheek blush
+    g.fillStyle(0xff8888, 0.15)
+    g.fillCircle(20, CH-93, 5)
+    g.fillCircle(44, CH-93, 5)
+    // Ears
+    g.fillStyle(m.skin)
+    g.fillCircle(17, CH-98, 5)
+    g.fillCircle(47, CH-98, 5)
+    g.fillStyle(Phaser.Display.Color.GetColor(skinDark.r,skinDark.g,skinDark.b), 0.3)
+    g.fillCircle(18, CH-97, 3)
+    g.fillCircle(46, CH-97, 3)
+
+    // ── Eyes ─────────────────────────────────────────────────────────────────
+    // Eye whites
+    g.fillStyle(0xf8f8f8)
+    g.fillRoundedRect(21, CH-105, 9, 8, 2)
+    g.fillRoundedRect(34, CH-105, 9, 8, 2)
+    // Iris
+    g.fillStyle(0x2d1b4e)
+    g.fillCircle(25, CH-101, 3)
+    g.fillCircle(38, CH-101, 3)
+    // Pupil
+    g.fillStyle(0x050505)
+    g.fillCircle(25, CH-101, 1.5)
+    g.fillCircle(38, CH-101, 1.5)
+    // Eye shine (big)
+    g.fillStyle(0xffffff, 0.95)
+    g.fillCircle(26, CH-103, 1.5)
+    g.fillCircle(39, CH-103, 1.5)
+    // Eye shine (small)
+    g.fillStyle(0xffffff, 0.5)
+    g.fillCircle(24, CH-100, 0.8)
+    g.fillCircle(37, CH-100, 0.8)
+    // Eyelid top shadow
+    g.fillStyle(0x000000, 0.18)
+    g.fillRect(21, CH-105, 9, 2)
+    g.fillRect(34, CH-105, 9, 2)
+
+    // ── Eyebrows ─────────────────────────────────────────────────────────────
+    g.fillStyle(m.hair)
+    // Left brow — slight arch
+    g.fillRect(21, CH-109, 4, 2)
+    g.fillRect(25, CH-110, 4, 2)
+    g.fillRect(29, CH-109, 1, 2)
+    // Right brow
+    g.fillRect(34, CH-109, 4, 2)
+    g.fillRect(38, CH-110, 4, 2)
+    g.fillRect(42, CH-109, 1, 2)
+
+    // ── Nose ─────────────────────────────────────────────────────────────────
+    g.fillStyle(Phaser.Display.Color.GetColor(skinDark.r,skinDark.g,skinDark.b), 0.45)
+    g.fillTriangle(30, CH-100, 33, CH-93, 27, CH-93)
+    g.fillStyle(0x000000, 0.10)
+    g.fillCircle(28, CH-93, 2)
+    g.fillCircle(34, CH-93, 2)
+
+    // ── Mouth ────────────────────────────────────────────────────────────────
+    g.fillStyle(0x8b3a1a)
+    g.fillRoundedRect(25, CH-88, 14, 3, 1)
+    g.fillStyle(0xffc0a0, 0.5)
+    g.fillRect(27, CH-88, 10, 1)
+    // Smile creases
+    g.fillStyle(Phaser.Display.Color.GetColor(skinDark.r,skinDark.g,skinDark.b), 0.3)
+    g.fillRect(24, CH-89, 2, 3)
+    g.fillRect(38, CH-89, 2, 3)
+
+    // ── Hair ─────────────────────────────────────────────────────────────────
+    const hairLight = { r: Math.min(255,((m.hair>>16)&0xff)+25), g: Math.min(255,((m.hair>>8)&0xff)+25), b: Math.min(255,(m.hair&0xff)+25) }
+    g.fillStyle(m.hair)
+    // Hair back volume
+    g.fillEllipse(32, CH-115, 42, 26)
+    // Hair top cap
+    g.fillRect(15, CH-113, 34, 12)
+    // Sides
+    g.fillRoundedRect(13, CH-112, 8, 20, 3)
+    g.fillRoundedRect(43, CH-112, 8, 20, 3)
+    // Hair highlight
+    g.fillStyle(Phaser.Display.Color.GetColor(hairLight.r,hairLight.g,hairLight.b), 0.35)
+    g.fillEllipse(26, CH-117, 16, 8)
+    // Hair sheen
+    g.fillStyle(0xffffff, 0.07)
+    g.fillEllipse(23, CH-118, 10, 5)
+
+    g.generateTexture(key, CW, CH)
     g.destroy()
   }
 
-  _makeMonitorTexture() {
+  _buildMonitor() {
     const g = this.add.graphics()
-    // Stand
-    g.fillStyle(0x0a0a18)
-    g.fillRect(21, 60, 8, 12)
-    g.fillRect(12, 70, 26, 5)
-    // Bezel outer
-    g.fillStyle(0x101020)
-    g.fillRoundedRect(0, 0, 52, 62, 5)
-    // Bezel inner shadow
-    g.fillStyle(0x0a0a18)
-    g.fillRoundedRect(1, 1, 50, 60, 5)
-    // Screen bg
-    g.fillStyle(0x04040e)
-    g.fillRect(4, 4, 44, 52)
-    // Code lines
-    const codeColors = [0x00ff88, 0x4488ff, 0xff8844, 0xffff44, 0xffffff, 0x44ffff, 0xff44ff]
-    const indents    = [0, 10, 20, 10, 0, 14, 6]
-    for (let row = 0; row < 9; row++) {
-      const len = 8 + Math.floor(Math.random() * 30)
-      const ind = indents[row % indents.length]
-      g.fillStyle(codeColors[row % codeColors.length], 0.75)
-      g.fillRect(6 + ind, 7 + row * 5, len, 2)
-      if (row % 4 === 0) {
-        g.fillStyle(0x334466, 0.4)
-        g.fillRect(6 + ind + 2, 7 + row * 5 + 3, Math.floor(len * 0.6), 1)
+    const MW = 70, MH = 90
+    // Stand cylinder with 3D look
+    g.fillStyle(0x0d0d22)
+    g.fillRect(MW/2-5, 72, 10, 14)
+    g.fillStyle(0x1a1a3a, 0.5)
+    g.fillRect(MW/2-5, 72, 4, 14)
+    // Stand base
+    g.fillStyle(0x0a0a1c)
+    g.fillRoundedRect(MW/2-18, 82, 36, 6, 2)
+    g.fillStyle(0x2a2a4a, 0.4)
+    g.fillRect(MW/2-16, 82, 32, 2)
+
+    // Monitor body — 3D depth effect
+    g.fillStyle(0x0a0a1c)  // right side face
+    g.fillRect(MW-4, 4, 4, 70)
+    g.fillStyle(0x06060f)  // bottom face
+    g.fillRect(0, 70, MW, 4)
+    // Main bezel
+    g.fillStyle(0x111124)
+    g.fillRoundedRect(0, 0, MW-4, 72, 4)
+    // Bezel inner
+    g.fillStyle(0x080818)
+    g.fillRoundedRect(2, 2, MW-8, 68, 3)
+    // Screen
+    g.fillStyle(0x030310)
+    g.fillRect(5, 5, MW-18, 62)
+
+    // Screen content — code editor
+    const lineColors = [0x00ff88, 0x4488ff, 0xff8844, 0xffff55, 0xff66aa, 0x44ffff, 0xaa88ff]
+    const indents = [0, 12, 24, 12, 0, 16, 8, 24, 0]
+    for (let r = 0; r < 11; r++) {
+      const col = lineColors[r % lineColors.length]
+      const ind = indents[r % indents.length]
+      const len = 15 + (r * 7) % 22
+      g.fillStyle(col, 0.78)
+      g.fillRect(7 + ind, 8 + r * 5, len, 2)
+      // Dim secondary token
+      if (r % 3 !== 0) {
+        g.fillStyle(0x334466, 0.45)
+        g.fillRect(7 + ind + len + 3, 8 + r * 5, Math.floor(len * 0.5), 2)
       }
     }
-    // Active cursor line highlight
-    g.fillStyle(0x0a2040, 0.5)
-    g.fillRect(4, 48, 44, 4)
-    // Cursor blink
-    g.fillStyle(0x00ff88, 1)
-    g.fillRect(6, 49, 5, 2)
-    // Screen edge blue glow
-    g.fillStyle(0x0a2060, 0.25)
-    g.fillRect(4, 4, 44, 3)
-    g.fillRect(4, 4, 3, 52)
+    // Active line highlight
+    g.fillStyle(0x0d2444, 0.6)
+    g.fillRect(5, 57, MW-18, 5)
+    // Cursor
+    g.fillStyle(0x00ff88)
+    g.fillRect(7, 58, 6, 3)
+    // Screen glow overlay
+    g.fillStyle(0x002244, 0.15)
+    g.fillRect(5, 5, MW-18, 10)
+
+    // Notch/logo on bezel
+    g.fillStyle(0x181830)
+    g.fillRect(MW/2-14, 70, 28, 2)
     // Power LED
     g.fillStyle(0x00ee44)
-    g.fillCircle(46, 58, 2)
-    g.fillStyle(0x88ffaa, 0.5)
-    g.fillCircle(46, 57, 1)
-    g.generateTexture('monitor', 52, 75)
+    g.fillCircle(MW-10, 68, 2)
+    g.fillStyle(0x88ffaa, 0.7)
+    g.fillCircle(MW-10, 67, 1)
+
+    // Screen reflection diagonal
+    g.fillStyle(0xffffff, 0.025)
+    g.fillTriangle(5, 5, 22, 5, 5, 25)
+
+    g.generateTexture('monitor', MW, MH)
     g.destroy()
   }
 
-  _makeChairTexture() {
+  _buildDesk() {
     const g = this.add.graphics()
-    // Back rest
-    g.fillStyle(0x181830)
-    g.fillRoundedRect(4, 0, 32, 22, 4)
-    // Back padding
-    g.fillStyle(0x1e1e3c, 0.7)
-    g.fillRect(7, 4, 26, 14)
-    g.fillStyle(0x2a2a50, 0.3)
-    g.fillRect(7, 4, 26, 4)
-    // Seat
-    g.fillStyle(0x181830)
-    g.fillRoundedRect(2, 20, 36, 10, 3)
-    g.fillStyle(0x2a2a50, 0.3)
-    g.fillRect(4, 20, 32, 3)
-    // Cylinder post
-    g.fillStyle(0x0d0d1e)
-    g.fillRect(16, 30, 8, 10)
-    g.fillStyle(0x222244, 0.4)
-    g.fillRect(16, 30, 4, 10)
-    // Base star
-    g.fillStyle(0x0a0a1a)
-    ;[[-14, 10], [14, 10], [0, 0], [-10, -6], [10, -6]].forEach(([dx, dy]) => {
-      g.fillRect(20 + dx - 2, 44 + dy - 2, 4, 4)
-    })
-    g.fillRect(6,  40, 28, 3)
-    g.fillRect(14, 36, 12, 8)
-    // Wheels
-    g.fillStyle(0x222244)
-    ;[6, 18, 30].forEach(wx => {
-      g.fillCircle(wx, 47, 4)
-      g.fillStyle(0x3a3a66, 0.5)
-      g.fillCircle(wx, 47, 2)
-      g.fillStyle(0x222244)
-    })
-    g.generateTexture('chair', 40, 52)
-    g.destroy()
-  }
-
-  _makePhoneTexture() {
-    const g = this.add.graphics()
-    // Body frame
-    g.fillStyle(0x1a1a2e)
-    g.fillRoundedRect(0, 0, 40, 72, 8)
-    g.fillStyle(0x0e0e20)
-    g.fillRoundedRect(1, 1, 38, 70, 7)
-    // Camera notch
-    g.fillStyle(0x0a0a18)
-    g.fillRoundedRect(13, 3, 14, 5, 2)
-    g.fillStyle(0x1a1a30)
-    g.fillCircle(20, 5, 2)
-    // Screen
-    g.fillStyle(0x040412)
-    g.fillRoundedRect(3, 10, 34, 52, 3)
-    // Caller display on screen
-    g.fillStyle(0x0a0a22, 1)
-    g.fillRect(5, 12, 30, 48)
-    // Status bar
-    g.fillStyle(0x00ff44, 0.4)
-    g.fillRect(5, 12, 30, 3)
-    // Caller name area
-    g.fillStyle(0x220000, 0.8)
-    g.fillRect(5, 18, 30, 20)
-    g.fillStyle(0xff4444, 0.2)
-    g.fillRect(5, 18, 30, 4)
-    // Unknown caller text (bars)
-    g.fillStyle(0xcc3333, 0.7)
-    g.fillRect(9, 22, 22, 3)
-    g.fillStyle(0xaa2222, 0.5)
-    g.fillRect(12, 28, 16, 2)
-    // Incoming call area
-    g.fillStyle(0x001100, 0.7)
-    g.fillRect(5, 42, 30, 14)
-    // Accept / decline dots
-    g.fillStyle(0x22cc44)
-    g.fillCircle(12, 50, 5)
-    g.fillStyle(0xcc2222)
-    g.fillCircle(28, 50, 5)
-    g.fillStyle(0xffffff, 0.7)
-    g.fillRect(10, 49, 4, 2)
-    g.fillRect(26, 49, 4, 2)
-    // Notif LED
-    g.fillStyle(0xff3333)
-    g.fillCircle(37, 4, 3)
-    g.fillStyle(0xff8888, 0.6)
-    g.fillCircle(37, 3, 1)
-    // Home bar
-    g.fillStyle(0x2a2a44)
-    g.fillRoundedRect(13, 64, 14, 3, 1)
-    g.generateTexture('phone', 40, 72)
-    g.destroy()
-  }
-
-  _makeLabWallTexture() {
-    const g = this.add.graphics()
-    const TW = 480, TH = 200
-    // Wall base gradient-ish
-    for (let y = 0; y < TH; y += 2) {
-      const t = y / TH
-      const c = Phaser.Display.Color.Interpolate.ColorWithColor(
-        Phaser.Display.Color.IntegerToColor(0x080816),
-        Phaser.Display.Color.IntegerToColor(0x0a0a20),
-        100, t * 100
-      )
-      g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b))
-      g.fillRect(0, y, TW, 2)
-    }
-    // Brick rows
-    const bW = 80, bH = 28
-    for (let row = 0; row < 8; row++) {
-      const off = row % 2 === 0 ? 0 : bW / 2
-      for (let col = -1; col < 8; col++) {
-        const bx = col * bW + off
-        const by = row * bH
-        g.lineStyle(1, 0x0e0e26, 0.7)
-        g.strokeRect(bx + 1, by + 1, bW - 2, bH - 2)
-        // Subtle brick variation
-        const shade = (row + col) % 3 === 0 ? 0x0c0c22 : 0x0a0a1e
-        g.fillStyle(shade, 0.25)
-        g.fillRect(bx + 2, by + 2, bW - 4, bH - 4)
-      }
-    }
-    // Baseboard
-    g.fillStyle(0x060612, 0.6)
-    g.fillRect(0, TH - 8, TW, 8)
-    g.lineStyle(1, 0x1a1a3a, 0.4)
-    g.lineBetween(0, TH - 8, TW, TH - 8)
-    g.generateTexture('lab_wall', TW, TH)
-    g.destroy()
-  }
-
-  _makeLabFloorTexture() {
-    const g = this.add.graphics()
-    const TW = 480, TH = 96
-    g.fillStyle(0x060710)
-    g.fillRect(0, 0, TW, TH)
-    const TS = 48
-    for (let tx = 0; tx < TW; tx += TS) {
-      for (let ty = 0; ty < TH; ty += TS) {
-        g.lineStyle(1, 0x0d0d20, 0.9)
-        g.strokeRect(tx + 1, ty + 1, TS - 2, TS - 2)
-        // Alternating tile shading
-        if ((Math.floor(tx / TS) + Math.floor(ty / TS)) % 2 === 0) {
-          g.fillStyle(0x0a0a1c, 0.4)
-          g.fillRect(tx + 2, ty + 2, TS - 4, TS - 4)
-        }
-        // Specular corner
-        g.fillStyle(0x111130, 0.2)
-        g.fillRect(tx + 2, ty + 2, 8, 8)
-      }
-    }
-    // Reflection strip
-    g.fillStyle(0x1a1a40, 0.12)
-    g.fillRect(0, 0, TW, 5)
-    g.generateTexture('lab_floor', TW, TH)
-    g.destroy()
-  }
-
-  _makeDeskTexture() {
-    const g = this.add.graphics()
-    const DW = 90, DH = 16
-    // Desk top surface
-    g.fillStyle(0x141428)
-    g.fillRoundedRect(0, 0, DW, DH, 4)
+    const DW = 110, DH = 24
+    // Desk front face (visible)
+    g.fillStyle(0x0e0e28)
+    g.fillRect(0, 6, DW, DH-6)
+    // Desk top face — lighter
+    g.fillStyle(0x1a1a38)
+    g.fillRect(0, 0, DW, 8)
     // Top edge highlight
-    g.fillStyle(0x2a2a5a, 0.7)
-    g.fillRect(2, 0, DW - 4, 2)
-    // Surface spec
-    g.fillStyle(0x1a1a44, 0.3)
-    g.fillRect(4, 3, 18, 4)
-    // Border
-    g.lineStyle(1, 0x2a2a5a, 0.5)
-    g.strokeRoundedRect(0, 0, DW, DH, 4)
+    g.fillStyle(0x3a3a6a, 0.8)
+    g.fillRect(0, 0, DW, 2)
+    // Surface gloss spec
+    g.fillStyle(0xffffff, 0.06)
+    g.fillRect(8, 1, 20, 3)
+    // Desk edge depth line
+    g.fillStyle(0x050510)
+    g.fillRect(0, 6, DW, 2)
+    // Table legs hint
+    g.fillStyle(0x0a0a1e)
+    g.fillRect(8, 8, 5, DH-8)
+    g.fillRect(DW-13, 8, 5, DH-8)
+    // Leg highlight
+    g.fillStyle(0x1a1a3a, 0.5)
+    g.fillRect(8, 8, 2, DH-8)
+    g.fillRect(DW-13, 8, 2, DH-8)
+
     g.generateTexture('desk', DW, DH)
     g.destroy()
   }
 
+  _buildChair() {
+    const g = this.add.graphics()
+    const CW = 52, CH = 68
+    // Back rest — 3D box
+    g.fillStyle(0x0a0a22)   // right face
+    g.fillRect(38, 0, 6, 26)
+    g.fillStyle(0x060612)   // top face
+    g.fillRect(4, 0, 40, 5)
+    g.fillStyle(0x151530)   // front face
+    g.fillRoundedRect(4, 3, 34, 24, 3)
+    // Back padding
+    g.fillStyle(0x1e1e40, 0.8)
+    g.fillRoundedRect(7, 6, 28, 16, 2)
+    g.fillStyle(0x2a2a55, 0.35)
+    g.fillRect(7, 6, 28, 4)
+    // Headrest
+    g.fillStyle(0x1a1a36)
+    g.fillRoundedRect(11, 2, 20, 6, 2)
+
+    // Seat — 3D box
+    g.fillStyle(0x0a0a22)   // right face
+    g.fillRect(42, 28, 6, 12)
+    g.fillStyle(0x060612)
+    g.fillRect(2, 28, 46, 5)   // top face
+    g.fillStyle(0x151530)
+    g.fillRoundedRect(2, 31, 40, 10, 2)  // front face
+    g.fillStyle(0x2a2a50, 0.3)
+    g.fillRect(4, 31, 36, 3)
+
+    // Cylinder post
+    g.fillStyle(0x0d0d22)
+    g.fillRect(18, 41, 10, 12)
+    g.fillStyle(0x2a2a44, 0.5)
+    g.fillRect(18, 41, 4, 12)
+
+    // Star base
+    g.fillStyle(0x0a0a1e)
+    const cx = 23, cy = 57
+    const arms = 5
+    for (let a = 0; a < arms; a++) {
+      const angle = (a / arms) * Math.PI * 2 - Math.PI/2
+      const x2 = cx + Math.cos(angle) * 16
+      const y2 = cy + Math.sin(angle) * 8
+      g.fillRect(Math.min(cx, x2), Math.min(cy, y2), Math.abs(x2-cx)+3, Math.abs(y2-cy)+3)
+    }
+    g.fillCircle(cx, cy, 7)
+
+    // Wheels
+    g.fillStyle(0x1a1a30)
+    const wPos = [[9,63],[23,65],[37,63]]
+    wPos.forEach(([wx,wy]) => {
+      g.fillEllipse(wx, wy, 9, 5)
+      g.fillStyle(0x2d2d4a, 0.6)
+      g.fillEllipse(wx, wy-1, 5, 3)
+      g.fillStyle(0x1a1a30)
+    })
+
+    g.generateTexture('chair', CW, CH)
+    g.destroy()
+  }
+
+  _buildPhone() {
+    const g = this.add.graphics()
+    const PW = 52, PH = 90
+    // Phone shadow right/bottom — 3D
+    g.fillStyle(0x0a0a18)
+    g.fillRoundedRect(4, 4, PW, PH, 9)
+    // Body
+    g.fillStyle(0x111122)
+    g.fillRoundedRect(0, 0, PW, PH, 9)
+    g.fillStyle(0x1a1a30)
+    g.fillRoundedRect(1, 1, PW-2, PH-2, 8)
+    // Side buttons
+    g.fillStyle(0x080818)
+    g.fillRoundedRect(-2, 22, 3, 10, 1)  // volume
+    g.fillRoundedRect(-2, 36, 3, 8, 1)
+    g.fillRoundedRect(PW-1, 28, 3, 14, 1)  // power
+    // Camera notch
+    g.fillStyle(0x080812)
+    g.fillRoundedRect(15, 4, 22, 7, 3)
+    g.fillStyle(0x0a0a1c)
+    g.fillCircle(26, 7, 3)
+    g.fillStyle(0x1c1c35, 0.7)
+    g.fillCircle(26, 7, 1.5)  // lens
+    g.fillStyle(0xffffff, 0.3)
+    g.fillCircle(25, 6, 0.8)   // lens shine
+
+    // Screen bezel
+    g.fillStyle(0x040410)
+    g.fillRoundedRect(4, 13, PW-8, PH-20, 4)
+
+    // ── Screen content ──
+    // BG
+    g.fillStyle(0x0a0014)
+    g.fillRect(5, 14, PW-10, PH-22)
+    // Incoming call red overlay
+    g.fillStyle(0x200000, 0.9)
+    g.fillRect(5, 14, PW-10, 30)
+    // Caller ID area — red gradient
+    g.fillStyle(0x3a0000, 0.7)
+    g.fillRect(5, 14, PW-10, 5)
+    // Unknown icon circle
+    g.fillStyle(0x550000, 0.9)
+    g.fillCircle(26, 27, 9)
+    g.fillStyle(0xcc2222, 0.6)
+    g.fillCircle(26, 24, 4)  // head
+    g.fillStyle(0xcc2222, 0.6)
+    g.fillEllipse(26, 35, 12, 6)  // body
+
+    // UNKNOWN text bars
+    g.fillStyle(0xff3333, 0.6)
+    g.fillRect(10, 41, 32, 2)
+    g.fillStyle(0xaa2222, 0.4)
+    g.fillRect(14, 45, 24, 2)
+    // "INCOMING CALL" bar
+    g.fillStyle(0x220000, 0.8)
+    g.fillRect(5, 49, PW-10, 10)
+    g.fillStyle(0xff2222, 0.25)
+    g.fillRect(5, 49, PW-10, 2)
+    // Accept / Decline buttons
+    g.fillStyle(0x116622)
+    g.fillCircle(15, 62, 7)
+    g.fillStyle(0xcc2222)
+    g.fillCircle(37, 62, 7)
+    // Phone icons
+    g.fillStyle(0xffffff, 0.9)
+    g.fillRect(12, 61, 6, 2)
+    g.fillRect(34, 61, 6, 2)
+    g.fillRect(35, 60, 2, 4)
+    // Screen bottom glow
+    g.fillStyle(0x1a0000, 0.4)
+    g.fillRect(5, 69, PW-10, PH-91)
+    // Notification LED blinking
+    g.fillStyle(0xff2200)
+    g.fillCircle(PW-5, 5, 3)
+    g.fillStyle(0xff8888, 0.7)
+    g.fillCircle(PW-5, 4, 1.5)
+    // Home bar
+    g.fillStyle(0x222238)
+    g.fillRoundedRect(17, PH-8, 18, 3, 1)
+
+    g.generateTexture('phone', PW, PH)
+    g.destroy()
+  }
+
+  _buildParticle() {
+    const g = this.add.graphics()
+    g.fillStyle(0xffffff, 1)
+    g.fillCircle(4, 4, 4)
+    g.generateTexture('particle', 8, 8)
+    g.destroy()
+  }
+
+  _buildWall() {
+    const g = this.add.graphics()
+    const TW = 480, TH = 220
+    // Deep space background
+    for (let y = 0; y < TH; y += 4) {
+      const t = y / TH
+      const r = Math.round(4 + t * 4)
+      const gb = Math.round(4 + t * 8)
+      g.fillStyle(Phaser.Display.Color.GetColor(r, gb, gb + 4))
+      g.fillRect(0, y, TW, 4)
+    }
+    // Brick grid with proper 3D shadow
+    const bW = 72, bH = 26
+    for (let row = 0; row < 10; row++) {
+      const off = row % 2 === 0 ? 0 : bW / 2
+      for (let col = -1; col < 9; col++) {
+        const bx = col * bW + off
+        const by = row * bH
+        // Brick shadow
+        g.fillStyle(0x000000, 0.3)
+        g.fillRect(bx + 2, by + 2, bW - 3, bH - 2)
+        // Brick base
+        const shade = ((row + col) % 2 === 0) ? 0x0d0d24 : 0x0b0b1e
+        g.fillStyle(shade)
+        g.fillRect(bx + 1, by + 1, bW - 3, bH - 3)
+        // Brick top highlight
+        g.fillStyle(0xffffff, 0.025)
+        g.fillRect(bx + 2, by + 2, bW - 4, 3)
+        // Mortar lines
+        g.fillStyle(0x050510, 0.7)
+        g.fillRect(bx, by, bW, 1)  // top
+        g.fillRect(bx, by, 1, bH)  // left
+      }
+    }
+    // Baseboard
+    g.fillStyle(0x060612, 0.8)
+    g.fillRect(0, TH - 12, TW, 12)
+    g.fillStyle(0x1a1a3a, 0.4)
+    g.fillRect(0, TH - 12, TW, 2)
+    g.generateTexture('lab_wall', TW, TH)
+    g.destroy()
+  }
+
+  _buildFloor() {
+    const g = this.add.graphics()
+    const TW = 480, TH = 120
+    g.fillStyle(0x050710)
+    g.fillRect(0, 0, TW, TH)
+    const TS = 60
+    for (let tx = 0; tx < TW; tx += TS) {
+      for (let ty = 0; ty < TH; ty += TS) {
+        const alt = (Math.floor(tx/TS) + Math.floor(ty/TS)) % 2
+        g.fillStyle(alt ? 0x08081a : 0x07070f)
+        g.fillRect(tx+1, ty+1, TS-2, TS-2)
+        // Tile highlight corner
+        g.fillStyle(0xffffff, 0.025)
+        g.fillRect(tx+2, ty+2, 10, 10)
+        // Grout
+        g.fillStyle(0x020208, 0.9)
+        g.fillRect(tx, ty, TS, 1)
+        g.fillRect(tx, ty, 1, TS)
+      }
+    }
+    // Floor reflection
+    g.fillStyle(0x1a1a44, 0.08)
+    g.fillRect(0, 0, TW, 6)
+    g.generateTexture('lab_floor', TW, TH)
+    g.destroy()
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // PHASE 1 — SI Lab
+  // PHASE 1 — SI LAB SCENE
   // ═══════════════════════════════════════════════════════════════════════════
   _phase1_labScene() {
     const { W, H } = this
+    const isMobile = W < 500
 
-    // ── Background ──────────────────────────────────────────────────────────
-    this.add.rectangle(0, 0, W, H, 0x06060f).setOrigin(0)
+    // ── Backgrounds ────────────────────────────────────────────────────────
+    this.add.rectangle(0, 0, W, H, 0x04040e).setOrigin(0)
+    const wallH = H * 0.63
+    this.add.tileSprite(0, 0, W, wallH, 'lab_wall').setOrigin(0)
+    const floorY = H * 0.68
+    this.add.tileSprite(0, floorY, W, H - floorY, 'lab_floor').setOrigin(0)
 
-    // Wall (top 60%)
-    this.add.tileSprite(0, 0, W, H * 0.62, 'lab_wall').setOrigin(0).setAlpha(0.88)
-    // Floor
-    this.add.tileSprite(0, H * 0.70, W, H * 0.30, 'lab_floor').setOrigin(0).setAlpha(0.9)
-    // Wall/floor divider line
-    const divG = this.add.graphics()
-    divG.lineStyle(2, 0x1a1a3a, 0.5)
-    divG.lineBetween(0, H * 0.70, W, H * 0.70)
+    // Wall/floor junction
+    const jG = this.add.graphics()
+    jG.fillStyle(0x020208)
+    jG.fillRect(0, floorY - 2, W, 4)
 
-    // Ceiling strip lights
-    this._ceilingLight(W * 0.22, 0, W * 0.38)
-    this._ceilingLight(W * 0.72, 0, W * 0.32)
+    // Ceiling lights
+    this._ceilingLight(W * 0.25, 0, W * 0.35)
+    this._ceilingLight(W * 0.75, 0, W * 0.30)
 
-    // Monitor wall glow blobs
-    const glowSlots = [W * 0.15, W * 0.38, W * 0.62, W * 0.85]
-    const glowColors = [0x0a1a6a, 0x0a3a2a, 0x2a1a4a, 0x1a1a5a]
-    glowSlots.forEach((x, i) => {
-      const gG = this.add.graphics()
-      for (let r = 50; r > 0; r -= 5) {
-        gG.fillStyle(glowColors[i], 0.018 * (1 - r / 50))
-        gG.fillEllipse(x, H * 0.28, r * 2.8, r * 1.2)
+    // Ambient monitor glows on wall
+    const wallGlows = isMobile
+      ? [{ x: W*0.25, c: 0x0a2060 }, { x: W*0.75, c: 0x0a3a20 }]
+      : [{ x: W*0.15, c: 0x0a1a60 }, { x: W*0.38, c: 0x0a3a20 }, { x: W*0.62, c: 0x220a40 }, { x: W*0.85, c: 0x1a1a50 }]
+    wallGlows.forEach(({ x, c }) => {
+      const wg = this.add.graphics()
+      for (let r = 70; r > 0; r -= 6) {
+        wg.fillStyle(c, 0.016 * (1 - r/70))
+        wg.fillEllipse(x, H * 0.3, r * 3.5, r * 1.8)
       }
     })
 
-    // Post-FX overlays
-    // this._scanlines()  // Removed obstructing scanlines
+    // ── Scene Title ─────────────────────────────────────────────────────────
+    const tagline = this._label(W/2, H*0.04, '[ SI LAB  //  CS DEPT  //  LATE NIGHT ]', 7, '#0e1a44').setOrigin(0.5).setAlpha(0)
+    this._tw_add(this.tweens.add({ targets: tagline, alpha: 1, duration: 700, delay: 400 }))
 
-    // ── Title tag ────────────────────────────────────────────────────────────
-    const topTag = this._txt(W / 2, H * 0.03, '[ SI LAB  //  CS DEPT  //  LATE NIGHT ]', 'mono', 8, '#1a1a4a')
-      .setOrigin(0.5).setAlpha(0)
-    this._tween(topTag, { alpha: 1, duration: 600, delay: 300 })
+    const sceneTitle = this._label(W/2, H*0.095, 'A NORMAL NIGHT IN THE LAB', this._fs(2.6, 8, 18), '#1e2e77').setOrigin(0.5).setAlpha(0)
+    this._tw_add(this.tweens.add({ targets: sceneTitle, alpha: 1, duration: 600, delay: 700 }))
 
-    const sceneTitle = this._txt(W / 2, H * 0.09, 'A NORMAL NIGHT IN THE LAB', 'pixel', this._fs(3, 8, 16), '#222f88')
-      .setOrigin(0.5).setAlpha(0)
-    this._tween(sceneTitle, { alpha: 1, duration: 500, delay: 700 })
+    const titleLine = this.add.graphics().setAlpha(0)
+    titleLine.lineStyle(1, 0x242e66, 0.5)
+    titleLine.lineBetween(W*0.12, H*0.14, W*0.88, H*0.14)
+    this._tw_add(this.tweens.add({ targets: titleLine, alpha: 1, duration: 400, delay: 1000 }))
 
-    const titleRule = this.add.graphics().setAlpha(0)
-    titleRule.lineStyle(1, 0x2a3a88, 0.4)
-    titleRule.lineBetween(W * 0.18, H * 0.14, W * 0.82, H * 0.14)
-    this._tween(titleRule, { alpha: 1, duration: 400, delay: 1000 })
+    // ── Characters ──────────────────────────────────────────────────────────
+    const slots = isMobile
+      ? [{ x: W*0.25 }, { x: W*0.75 }]
+      : [{ x: W*0.15 }, { x: W*0.38 }, { x: W*0.62 }, { x: W*0.85 }]
+    const showCount = isMobile ? 4 : 4  // show all 4 even on mobile — compact spacing
 
-    // ── Characters ───────────────────────────────────────────────────────────
-    const deskY = H * 0.69
-    const charY = H * 0.57
+    const deskY = H * 0.70
+    const charY = H * 0.60
 
-    const xSlots = [W * 0.15, W * 0.38, W * 0.62, W * 0.85]
-    const charGlowColors = [0x0a1a6a, 0x0a6a1a, 0x6a0a1a, 0x6a1a0a]
+    // Determine x positions
+    const xSlots = isMobile
+      ? [W*0.22, W*0.44, W*0.66, W*0.88]
+      : [W*0.14, W*0.37, W*0.63, W*0.86]
+
+    this._charObjects = []
 
     MEMBERS.forEach((m, i) => {
-      const x     = xSlots[i]
-      const delay = 800 + i * 200
+      const x   = xSlots[i]
+      const del = 900 + i * 280
+      const scale = isMobile ? 0.55 : 0.70
 
-      // Monitor glow behind monitor
-      const mgG = this.add.graphics().setAlpha(0).setDepth(3)
-      for (let r = 30; r > 0; r -= 4) {
-        mgG.fillStyle(charGlowColors[i], 0.04 * (1 - r / 30))
-        mgG.fillEllipse(x, deskY - 24, r * 3, r * 1.5)
+      // Floor glow under each station
+      const floorGlow = this.add.graphics().setAlpha(0).setDepth(2)
+      for (let r = 30; r > 0; r -= 3) {
+        floorGlow.fillStyle(m.color, 0.015 * (1 - r/30))
+        floorGlow.fillEllipse(x, deskY + 8, r * 3, r * 0.9)
       }
-      // Monitor
-      const mon = this.add.image(x, deskY - 20, 'monitor').setAlpha(0).setScale(0.80).setDepth(4)
-      // Desk
-      const desk = this.add.image(x, deskY, 'desk').setAlpha(0).setScale(0.92).setDepth(4)
-      // Chair (lower z — behind char)
-      const chair = this.add.image(x + 2, deskY + 22, 'chair').setAlpha(0).setScale(0.65).setDepth(3)
-      // Character
-      const char = this.add.image(x, charY, `char_${i}`).setAlpha(0).setScale(0.80).setDepth(5)
-      // Name tag
-      const tag = this._buildNameTag(x, deskY + 36, m.name, m.color).setAlpha(0).setDepth(6)
 
-      this._tween(mgG,   { alpha: 1, duration: 350, delay })
-      this._tween(mon,   { alpha: 1, duration: 350, delay: delay + 60 })
-      this._tween(desk,  { alpha: 1, duration: 300, delay: delay + 80 })
-      this._tween(chair, { alpha: 1, duration: 300, delay: delay + 100 })
-      this._tween(char,  { alpha: 1, y: charY, duration: 380, ease: 'Back.out(1.5)', delay: delay + 140 })
-      this._tween(tag,   { alpha: 1, duration: 280, delay: delay + 320 })
+      // Monitor glow (behind monitor)
+      const monGlow = this.add.graphics().setAlpha(0).setDepth(3)
+      for (let r = 36; r > 0; r -= 4) {
+        monGlow.fillStyle(m.color, 0.03 * (1 - r/36))
+        monGlow.fillEllipse(x, deskY - 30, r * 3.2, r * 1.6)
+      }
+
+      const chair = this.add.image(x + 3, deskY + 18, 'chair').setAlpha(0).setScale(scale * 0.80).setDepth(3)
+      const desk  = this.add.image(x, deskY, 'desk').setAlpha(0).setScale(scale * 1.1).setDepth(4)
+      const mon   = this.add.image(x, deskY - 28, 'monitor').setAlpha(0).setScale(scale * 0.80).setDepth(5)
+      const char  = this.add.image(x, charY, `char_${i}`).setAlpha(0).setScale(scale).setDepth(5)
+      const tag   = this._buildNameTag(x, deskY + 20, m.name, m.color).setAlpha(0).setDepth(7)
+
+      this._tw_add(this.tweens.add({ targets: floorGlow, alpha: 1, duration: 300, delay: del - 100 }))
+      this._tw_add(this.tweens.add({ targets: monGlow,   alpha: 1, duration: 350, delay: del }))
+      this._tw_add(this.tweens.add({ targets: mon,       alpha: 1, duration: 300, delay: del + 50 }))
+      this._tw_add(this.tweens.add({ targets: desk,      alpha: 1, duration: 280, delay: del + 80 }))
+      this._tw_add(this.tweens.add({ targets: chair,     alpha: 1, duration: 280, delay: del + 100 }))
+      this._tw_add(this.tweens.add({
+        targets: char, alpha: 1, y: charY,
+        duration: 420, ease: 'Back.out(1.8)', delay: del + 150
+      }))
+      this._tw_add(this.tweens.add({ targets: tag, alpha: 1, duration: 250, delay: del + 360 }))
 
       // Idle breathe
-      this._tween(char, { scaleY: 0.81, scaleX: 0.79, duration: 1500 + i * 180, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: delay + 700 })
-      // Monitor glow pulse
-      this._tween(mgG, { alpha: 0.5, duration: 1700 + i * 250, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' })
+      this._tw_add(this.tweens.add({
+        targets: char, scaleY: scale * 1.02, scaleX: scale * 0.99,
+        duration: 1600 + i * 200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        delay: del + 600
+      }))
+      // Monitor glow breathe
+      this._tw_add(this.tweens.add({
+        targets: monGlow, alpha: 0.55,
+        duration: 1800 + i * 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      }))
 
-      // Speech bubble
-      this._timer(1800 + i * 320, () => {
-        const bub = this._buildSpeechBubble(x, charY - 68, m.msg, m.color).setAlpha(0).setDepth(8)
-        this._tween(bub, { alpha: 1, duration: 400 })  // Removed flying animation, just fade in
-        this._timer(3000, () => {  // Extended duration
-          this._tween(bub, { alpha: 0, duration: 400, onComplete: () => bub.destroy() })
+      this._charObjects.push({ char, mon, desk, chair, tag, x, charY, m })
+
+      // Speech bubble after a delay
+      this._timer(2200 + i * 480, () => {
+        const bub = this._buildSpeechBubble(x, charY - Math.round(44 * scale) - 28, m.msg, m.color)
+          .setAlpha(0).setDepth(9)
+        this._tw_add(this.tweens.add({
+          targets: bub, alpha: 1, y: bub.y - 4,
+          duration: 380, ease: 'Back.out(1.4)'
+        }))
+        this._timer(3400, () => {
+          this._tw_add(this.tweens.add({
+            targets: bub, alpha: 0, y: bub.y - 8,
+            duration: 340, ease: 'Power2',
+            onComplete: () => bub.destroy()
+          }))
         })
       })
     })
 
-    // Floating vibe text (kept for speaking effect)
-    this._timer(2600, () => this._spawnFloat(W * 0.50, H * 0.33, 'hahaha 😂',  '#447744'))
-    this._timer(3100, () => this._spawnFloat(W * 0.27, H * 0.31, 'bhai 💀',    '#335577'))
-    this._timer(3600, () => this._spawnFloat(W * 0.73, H * 0.32, 'chal bhai!', '#554433'))
-    this._timer(4100, () => this._spawnFloat(W * 0.47, H * 0.36, 'khatam? 😱', '#665533'))
+    // Floating vibe text
+    this._timer(3000,  () => this._spawnFloat(W*0.50, H*0.28, 'hahaha 😂',   '#336633', 10))
+    this._timer(3600,  () => this._spawnFloat(W*0.28, H*0.26, 'bhai 💀',     '#223355', 9))
+    this._timer(4200,  () => this._spawnFloat(W*0.72, H*0.29, 'chal bhai!',  '#443322', 10))
+    this._timer(4800,  () => this._spawnFloat(W*0.46, H*0.25, 'khatam? 😱',  '#554422', 9))
+    this._timer(5200,  () => this._spawnFloat(W*0.62, H*0.24, 'deadline 😭', '#332244', 9))
 
-    // Monitor random flicker
-
-    // Transition after 6.5s
-    this._timer(6500, () => this._blackOut(700, () => this._phase2_disappear()))
+    // Transition
+    this._timer(7200, () => this._blackOut(800, () => this._phase2_disappear()))
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -482,168 +770,983 @@ export class PreludeScene extends Phaser.Scene {
 
     this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0)
 
-    // Glitch burst — 4 flashes
-    this._glitchBurst(4, () => {
-      // Rebuilt lab — only Divyansh present
-      this.add.rectangle(0, 0, W, H, 0x06060f).setOrigin(0)
-      this.add.tileSprite(0, 0, W, H * 0.62, 'lab_wall').setOrigin(0).setAlpha(0.78)
-      this.add.tileSprite(0, H * 0.70, W, H * 0.30, 'lab_floor').setOrigin(0).setAlpha(0.8)
-      const dG = this.add.graphics()
-      dG.lineStyle(2, 0x1a1a3a, 0.4)
-      dG.lineBetween(0, H * 0.70, W, H * 0.70)
-      this._ceilingLight(W * 0.22, 0, W * 0.38)
-      // this._scanlines()  // Removed
-      // this._cornerVignette()  // Removed
+    // Glitch burst then rebuild
+    this._glitchBurst(5, () => {
+      this.add.rectangle(0, 0, W, H, 0x04040e).setOrigin(0)
+      const wallH = H * 0.63
+      this.add.tileSprite(0, 0, W, wallH, 'lab_wall').setOrigin(0).setAlpha(0.75)
+      const floorY = H * 0.68
+      this.add.tileSprite(0, floorY, W, H - floorY, 'lab_floor').setOrigin(0).setAlpha(0.85)
+      const jG = this.add.graphics()
+      jG.fillStyle(0x020208)
+      jG.fillRect(0, floorY - 2, W, 4)
+      this._ceilingLight(W * 0.25, 0, W * 0.35)
 
-      // Emergency red atmospheric overlay
-      const redAtm = this.add.rectangle(0, 0, W, H, 0xff0000, 0).setOrigin(0).setDepth(40)
-      this._tween(redAtm, { fillAlpha: 0.035, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' })
+      // Red pulse atmosphere
+      const redAtm = this.add.rectangle(0, 0, W, H, 0xff0000, 0).setOrigin(0).setDepth(38)
+      this._tw_add(this.tweens.add({
+        targets: redAtm, fillAlpha: 0.042,
+        duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      }))
 
-      const deskY = H * 0.69
-      const charY = H * 0.57
-      const xSlots = [W * 0.15, W * 0.38, W * 0.62, W * 0.85]
+      const isMobile = W < 500
+      const deskY = H * 0.70
+      const charY = H * 0.60
+      const xSlots = isMobile
+        ? [W*0.22, W*0.44, W*0.66, W*0.88]
+        : [W*0.14, W*0.37, W*0.63, W*0.86]
+      const scale  = isMobile ? 0.55 : 0.70
 
       xSlots.forEach((x, i) => {
         const isDivyansh = i === 0
+        const ms = MEMBERS[i]
 
-        // Desk always
-        const desk = this.add.image(x, deskY, 'desk').setScale(0.92).setDepth(4)
+        // Always show desk
+        this.add.image(x, deskY, 'desk').setScale(scale * 1.1).setDepth(4)
 
         if (isDivyansh) {
-          // Monitor still on
-          const mgG = this.add.graphics().setDepth(3)
-          for (let r = 30; r > 0; r -= 4) {
-            mgG.fillStyle(0x0a1a6a, 0.04 * (1 - r / 30))
-            mgG.fillEllipse(x, deskY - 24, r * 3, r * 1.5)
+          const monGlow = this.add.graphics().setDepth(3)
+          for (let r = 36; r > 0; r -= 4) {
+            monGlow.fillStyle(0x0a1a6a, 0.03 * (1 - r/36))
+            monGlow.fillEllipse(x, deskY - 30, r * 3.2, r * 1.6)
           }
-          this.add.image(x, deskY - 20, 'monitor').setScale(0.80).setDepth(4)
-          const chair = this.add.image(x + 2, deskY + 22, 'chair').setScale(0.65).setDepth(3)
-          const char = this.add.image(x, charY, 'char_0').setScale(0.80).setDepth(5)
-          // Scared — slight continuous shake
-          this._tween(char, { x: x + 3, duration: 55, yoyo: true, repeat: -1, ease: 'Linear' })
-          // Name tag
-          this._buildNameTag(x, deskY + 36, 'Divyansh', 0x7b2fbe).setDepth(6)
-          // Scared speech bubble
-          this._timer(800, () => {
-            const bub = this._buildSpeechBubble(x, charY - 68, '...woh kahan\ngaye?? 😱', 0x7b2fbe).setAlpha(0).setDepth(8)
-            this._tween(bub, { alpha: 1, duration: 300 })
+          this.add.image(x, deskY - 28, 'monitor').setScale(scale * 0.80).setDepth(5)
+          this.add.image(x + 3, deskY + 18, 'chair').setScale(scale * 0.80).setDepth(3)
+
+          const char = this.add.image(x, charY, 'char_0').setScale(scale).setDepth(6)
+          // Scared trembling
+          this._tw_add(this.tweens.add({ targets: char, x: x + 2.5, duration: 48, yoyo: true, repeat: -1, ease: 'Linear' }))
+          this._tw_add(this.tweens.add({ targets: char, angle: 1.5, duration: 80, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' }))
+
+          this._buildNameTag(x, deskY + 20, 'Divyansh', 0x7b2fbe).setDepth(7)
+
+          this._timer(600, () => {
+            const bub = this._buildSpeechBubble(x, charY - Math.round(44 * scale) - 28, '...woh kahan\ngaye?? 😱', 0x7b2fbe)
+              .setAlpha(0).setDepth(10)
+            this._tw_add(this.tweens.add({ targets: bub, alpha: 1, duration: 320 }))
           })
         } else {
-          // EMPTY — toppled chair, scattered items
-          const chair = this.add.image(x + Phaser.Math.Between(-8, 8), deskY + 26, 'chair')
-            .setScale(0.65).setDepth(3).setAlpha(0.5)
-            .setRotation(Phaser.Math.FloatBetween(-0.6, 0.6))
-            .setTint(0x111122)
-          // Fallen keyboard block
-          const kbd = this.add.rectangle(
-            x + Phaser.Math.Between(-18, 18), deskY - 2,
-            Phaser.Math.Between(28, 40), 8, 0x0e0e20, 0.7
-          ).setRotation(Phaser.Math.FloatBetween(-0.5, 0.5)).setDepth(5)
-          // Big dim question mark
-          const qm = this._txt(x, charY - 4, '?', 'pixel', this._fs(8, 22, 44), '#1a1a40')
-            .setOrigin(0.5).setAlpha(0).setDepth(6)
-          this._tween(qm, { alpha: 0.45, duration: 450, delay: 300 + i * 100 })
-          this._tween(qm, { y: charY - 12, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 500 })
+          // Empty spot — toppled chair, scattered items, eerie glow
+          this.add.image(x + Phaser.Math.Between(-12, 12), deskY + 22, 'chair')
+            .setScale(scale * 0.80).setDepth(3).setAlpha(0.38)
+            .setRotation(Phaser.Math.FloatBetween(-0.8, 0.8))
+            .setTint(0x0a0a1a)
+
+          // Scattered item (keyboard/mouse)
+          this.add.rectangle(
+            x + Phaser.Math.Between(-22, 22), deskY - 2,
+            Phaser.Math.Between(28, 42), 8,
+            0x0c0c20, 0.65
+          ).setRotation(Phaser.Math.FloatBetween(-0.55, 0.55)).setDepth(5)
+
+          // Eerie empty glow
+          const emptyGlow = this.add.graphics().setDepth(3).setAlpha(0)
+          for (let r = 28; r > 0; r -= 4) {
+            emptyGlow.fillStyle(ms.color, 0.018 * (1 - r/28))
+            emptyGlow.fillEllipse(x, charY, r * 2.5, r * 2.5)
+          }
+          this._tw_add(this.tweens.add({ targets: emptyGlow, alpha: 1, duration: 400, delay: 200 + i * 80 }))
+          this._tw_add(this.tweens.add({ targets: emptyGlow, alpha: 0.3, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' }))
+
+          // Big glowing ?
+          const qBg = this.add.text(x, charY, '?', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: this._fs(10, 24, 52), fill: ms.accent,
+            stroke: '#000000', strokeThickness: 6,
+          }).setOrigin(0.5).setAlpha(0).setDepth(7)
+          this._tw_add(this.tweens.add({ targets: qBg, alpha: 0.5, duration: 480, delay: 280 + i * 90 }))
+          this._tw_add(this.tweens.add({ targets: qBg, y: charY - 10, duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 500 }))
         }
       })
 
-      // ── MISSING panel ──────────────────────────────────────────────────────
+      // ── MISSING alert panel ────────────────────────────────────────────────
       this._timer(500, () => {
-        const pW = Math.min(W * 0.90, 370)
-        const pX = W / 2, pY = H * 0.17
+        const pW = Math.min(W * 0.88, 380)
+        const pX = W / 2, pY = H * 0.15
 
-        const panelG = this.add.graphics().setDepth(20).setAlpha(0)
-        panelG.fillStyle(0x110000, 0.95)
-        panelG.fillRoundedRect(pX - pW / 2, pY - 32, pW, 62, 5)
-        panelG.lineStyle(2, 0xcc2222, 0.85)
-        panelG.strokeRoundedRect(pX - pW / 2, pY - 32, pW, 62, 5)
-        panelG.fillStyle(0xcc2222, 1)
-        panelG.fillRect(pX - pW / 2, pY - 32, 5, 62)    // left accent
-        panelG.fillStyle(0x220000, 1)
-        panelG.fillRect(pX - pW / 2 + 5, pY - 32, pW - 5, 4)  // top red strip
-        this._tween(panelG, { alpha: 1, duration: 400 })
+        const panelG = this.add.graphics().setDepth(22).setAlpha(0)
+        panelG.fillStyle(0x0e0000, 0.96)
+        panelG.fillRoundedRect(pX - pW/2, pY - 32, pW, 64, 6)
+        panelG.lineStyle(2, 0xdd2222, 0.9)
+        panelG.strokeRoundedRect(pX - pW/2, pY - 32, pW, 64, 6)
+        // Left warning stripe
+        panelG.fillStyle(0xcc1111)
+        panelG.fillRoundedRect(pX - pW/2, pY - 32, 6, 64, 6)
+        // Top stripe
+        panelG.fillStyle(0x330000)
+        panelG.fillRect(pX - pW/2 + 6, pY - 32, pW - 6, 5)
+        // Warning stripes (diagonal)
+        for (let stripe = 0; stripe < 8; stripe++) {
+          panelG.fillStyle(0xaa0000, 0.06)
+          panelG.fillRect(pX - pW/2 + 6 + stripe * 40, pY - 32, 20, 64)
+        }
+        this._tw_add(this.tweens.add({ targets: panelG, alpha: 1, duration: 380 }))
 
-        const missingT = this._txt(pX + 4, pY - 14, '⚠  3 MEMBERS MISSING', 'pixel', this._fs(3.5, 10, 20), '#cc2222')
-          .setOrigin(0.5).setAlpha(0).setDepth(21)
-        const namesT = this._txt(pX + 4, pY + 10, 'SACHI  ·  SHIVANSH  ·  SRAYANASH', 'mono', 9, '#661111')
-          .setOrigin(0.5).setAlpha(0).setDepth(21)
+        const missTxt = this._label(pX, pY - 10, '⚠  3 MEMBERS MISSING', this._fs(3.2, 9, 20), '#dd2222')
+          .setOrigin(0.5).setAlpha(0).setDepth(23)
+        const namesTxt = this._label(pX, pY + 14, 'SACHI  ·  SHIVANSH  ·  SRAYANASH', this._fs(1.6, 7, 12), '#661010')
+          .setOrigin(0.5).setAlpha(0).setDepth(23)
 
-        this._tween(missingT, { alpha: 1, duration: 350, delay: 100 })
-        this._tween(namesT,   { alpha: 1, duration: 350, delay: 280 })
+        this._tw_add(this.tweens.add({ targets: missTxt, alpha: 1, duration: 320, delay: 120 }))
+        this._tw_add(this.tweens.add({ targets: namesTxt, alpha: 1, duration: 320, delay: 260 }))
 
-        // Flicker red
-        this._timer(1100, () => {
-          this._tween(missingT, { alpha: 0.2, duration: 65, yoyo: true, repeat: 7, ease: 'Linear' })
+        // Flicker the warning text
+        this._timer(1200, () => {
+          this._tw_add(this.tweens.add({
+            targets: missTxt, alpha: 0.15, duration: 60, yoyo: true, repeat: 9, ease: 'Linear'
+          }))
         })
       })
 
-      this._timer(4200, () => this._blackOut(650, () => this._phase3_phoneCall()))
+      this._timer(5000, () => this._blackOut(700, () => this._phase3_phoneCall()))
     })
   }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // PHASE 3 — PHONE CALL
+// ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 3 — PHONE CALL  (full-screen hijack, slide-to-answer)
   // ═══════════════════════════════════════════════════════════════════════════
   _phase3_phoneCall() {
     this._clearScene()
     const { W, H } = this
 
-    this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0)
-    // this._scanlines()  // Removed
-    // this._cornerVignette()  // Removed
-    this._grain()
+    // ── 1. HARD BLACKOUT BASE ─────────────────────────────────────────────
+    this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0).setDepth(0)
 
-    // Subtle dark-red vignette
-    const atmG = this.add.graphics()
-    for (let r = 80; r > 0; r -= 8) {
-      atmG.fillStyle(0x220000, 0.014 * (1 - r / 80))
-      atmG.fillEllipse(W / 2, H * 0.28, r * 3, r * 2)
-    }
+    // ── 2. PHONE FRAME — fills entire screen ─────────────────────────────
+    // Outer bezel (device body)
+    const bezelColor = 0x0d0d12
+    const bezelG = this.add.graphics().setDepth(1)
+    bezelG.fillStyle(bezelColor)
+    bezelG.fillRoundedRect(0, 0, W, H, 22)
+    // Metallic edge highlight (top)
+    bezelG.fillStyle(0x2a2a38, 0.7)
+    bezelG.fillRoundedRect(0, 0, W, 3, { tl: 22, tr: 22, bl: 0, br: 0 })
+    // Metallic edge highlight (sides)
+    bezelG.fillStyle(0x1a1a26, 0.5)
+    bezelG.fillRect(0, 0, 3, H)
+    bezelG.fillRect(W - 3, 0, 3, H)
+    // Bottom chin
+    bezelG.fillStyle(0x080810, 0.8)
+    bezelG.fillRect(0, H - 40, W, 40)
 
-    // Phone with glow halo
-    const phoneHalo = this.add.graphics().setAlpha(0).setDepth(8)
-    for (let r = 50; r > 0; r -= 5) {
-      phoneHalo.fillStyle(0xff2222, 0.015 * (1 - r / 50))
-      phoneHalo.fillCircle(W / 2, H * 0.30, r)
-    }
-    const phone = this.add.image(W / 2, H * 0.30, 'phone').setAlpha(0).setScale(1.15).setDepth(9)
-    const phoneShad = this.add.ellipse(W / 2 + 6, H * 0.30 + 36, 50, 12, 0x000000, 0.35).setDepth(7)
+    // ── 3. CAMERA NOTCH (punch-hole style) ───────────────────────────────
+    const notchG = this.add.graphics().setDepth(3)
+    notchG.fillStyle(0x030308)
+    notchG.fillCircle(W / 2, 22, 11)
+    // Camera lens rings
+    notchG.lineStyle(1, 0x1a1a28, 0.8)
+    notchG.strokeCircle(W / 2, 22, 9)
+    notchG.fillStyle(0x0a0a18)
+    notchG.fillCircle(W / 2, 22, 7)
+    notchG.fillStyle(0x111120, 0.6)
+    notchG.fillCircle(W / 2, 22, 4)
+    notchG.fillStyle(0xffffff, 0.06)
+    notchG.fillCircle(W / 2 - 2, 20, 2)  // lens glint
 
-    this._tween(phoneHalo, { alpha: 1, duration: 400 })
-    this._tween(phoneShad, { alpha: 1, duration: 400 })
-    this._tween(phone, { alpha: 1, scaleX: 1.15, scaleY: 1.15, duration: 380, ease: 'Back.out(1.4)' })
-
-    // Ring shake
-    this._timer(460, () => {
-      this._tween(phone, { x: W / 2 + 11, duration: 50, yoyo: true, repeat: 16, ease: 'Linear' })
+    // ── 4. STATUS BAR ─────────────────────────────────────────────────────
+    const statusG = this.add.graphics().setDepth(3)
+    // Time
+    const now = new Date()
+    const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0')
+    this.add.text(14, 10, timeStr, {
+      fontFamily: '"Share Tech Mono", monospace', fontSize: 11, fill: '#ffffff'
+    }).setDepth(4)
+    // Signal bars (right side)
+    statusG.fillStyle(0xffffff, 0.8)
+    ;[0,1,2,3].forEach(i => {
+      const bh = 4 + i * 3
+      statusG.fillRect(W - 50 + i * 6, 14 - bh + 8, 4, bh)
     })
-    // Halo pulse
-    this._tween(phoneHalo, { alpha: 0.4, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 600 })
+    // WiFi icon
+    statusG.lineStyle(1.5, 0xffffff, 0.7)
+    statusG.arc(W - 20, 18, 7, -2.4, -0.7)
+    statusG.arc(W - 20, 18, 4.5, -2.4, -0.7)
+    statusG.fillStyle(0xffffff, 0.8)
+    statusG.fillCircle(W - 20, 18, 1.5)
+    // Battery
+    statusG.fillStyle(0xffffff, 0.15)
+    statusG.fillRoundedRect(W - 12, 11, 10, 14, 2)
+    statusG.fillStyle(0x44ff44, 0.9)
+    statusG.fillRoundedRect(W - 11, 12, 8, 9, 1)
+    statusG.fillStyle(0xffffff, 0.4)
+    statusG.fillRect(W - 9, 10, 4, 2)  // battery nub
 
-    // INCOMING label
-    const incoming = this._txt(W / 2, H * 0.49, '[ INCOMING CALL ]', 'mono', this._fs(2.5, 8, 13), '#335533')
-      .setOrigin(0.5).setAlpha(0)
-    this._tween(incoming, { alpha: 1, duration: 300, delay: 600 })
-    this._tween(incoming, { alpha: 0.2, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1100 })
+    // ── 5. ANIMATED SCREEN WALLPAPER (blurred cityscape suggestion) ───────
+    const wallG = this.add.graphics().setDepth(2)
+    // Deep blue-black gradient base
+    for (let y = 40; y < H - 40; y += 3) {
+      const t   = (y - 40) / (H - 80)
+      const r   = Math.round(2 + t * 8)
+      const gb  = Math.round(4 + t * 18)
+      wallG.fillStyle(Phaser.Display.Color.GetColor(r, gb, gb + 5))
+      wallG.fillRect(0, y, W, 3)
+    }
+    // City silhouette strip (abstract blobs at bottom)
+    wallG.fillStyle(0x020208)
+    ;[ [W*0.05,H*0.75,W*0.08,H*0.15],[W*0.13,H*0.70,W*0.07,H*0.20],
+       [W*0.20,H*0.68,W*0.06,H*0.22],[W*0.28,H*0.73,W*0.09,H*0.17],
+       [W*0.38,H*0.65,W*0.10,H*0.25],[W*0.50,H*0.72,W*0.07,H*0.18],
+       [W*0.58,H*0.67,W*0.11,H*0.23],[W*0.71,H*0.75,W*0.06,H*0.15],
+       [W*0.78,H*0.70,W*0.08,H*0.20],[W*0.87,H*0.73,W*0.10,H*0.17],
+    ].forEach(([bx,by,bw,bh]) => wallG.fillRect(bx, by, bw, bh))
+    // Window lights in buildings
+    wallG.fillStyle(0xffee88, 0.5)
+    for (let i = 0; i < 30; i++) {
+      wallG.fillRect(
+        W * 0.05 + Math.random() * W * 0.90,
+        H * 0.68 + Math.random() * H * 0.14,
+        2, 2
+      )
+    }
 
-    // Dialogue sequence
-    const lines = [
-      { spk: 'UNKNOWN',   txt: '"Hum tere lab ke 3 bande le\ngaye hain..."',           col: '#cc3333', delay: 1900  },
-      { spk: 'UNKNOWN',   txt: '"Ransom chahiye.\nSI LAB ke BEST bande bhejo."',        col: '#cc3333', delay: 5100  },
-      { spk: 'DIVYANSH',  txt: '"Best bande...?\nTum jaante nahi kya maang rahe ho."',  col: '#9b4fde', delay: 8500  },
-      { spk: 'DIVYANSH',  txt: '"Ab sirf ek hi option hai..."',                          col: '#9b4fde', delay: 11700 },
-      { spk: 'DIVYANSH',  txt: '"Unhe bulana padega."',                                  col: '#f0c040', delay: 13700 },
-    ]
+    // ── 6. CALL SCREEN OVERLAY — frosted glass effect ─────────────────────
+    // Blurred panel that covers top 60% of screen
+    const glassG = this.add.graphics().setDepth(5)
+    for (let y = 40; y < H * 0.58; y += 2) {
+      const t = (y - 40) / (H * 0.58 - 40)
+      glassG.fillStyle(0x080814, 0.88 - t * 0.15)
+      glassG.fillRect(0, y, W, 2)
+    }
+    // Glass sheen
+    glassG.fillStyle(0xffffff, 0.022)
+    glassG.fillRect(0, 40, W, 3)
 
-    lines.forEach(({ spk, txt, col, delay }) => {
-      const box = this._buildDialogueBox(W / 2, H * 0.72, spk, txt, col).setAlpha(0).setDepth(30)
-      this._timer(delay, () => {
-        this._tween(box, { alpha: 1, duration: 240, ease: 'Power2' })
-        this._timer(2700, () => this._tween(box, { alpha: 0, duration: 220, onComplete: () => box.destroy() }))
+    // ── 7. INCOMING CALL LABEL (top, under notch) ─────────────────────────
+    const callLabel = this.add.text(W / 2, 48, 'Incoming Call', {
+      fontFamily: '"Share Tech Mono", monospace',
+      fontSize: this._fs(3, 11, 18), fill: '#9999bb'
+    }).setOrigin(0.5).setAlpha(0).setDepth(8)
+    this._tw_add(this.tweens.add({ targets: callLabel, alpha: 1, duration: 400, delay: 200 }))
+
+    // ── 8. CALLER AVATAR ─────────────────────────────────────────────────
+    const avatarY = H * 0.22
+    // Pulsing ring 1
+    const ring1 = this.add.graphics().setDepth(6).setAlpha(0)
+    ring1.lineStyle(2, 0xff2222, 0.3)
+    ring1.strokeCircle(W / 2, avatarY, 56)
+    // Pulsing ring 2
+    const ring2 = this.add.graphics().setDepth(6).setAlpha(0)
+    ring2.lineStyle(1.5, 0xff3333, 0.18)
+    ring2.strokeCircle(W / 2, avatarY, 70)
+    // Pulsing ring 3
+    const ring3 = this.add.graphics().setDepth(6).setAlpha(0)
+    ring3.lineStyle(1, 0xff4444, 0.08)
+    ring3.strokeCircle(W / 2, avatarY, 86)
+
+    // Avatar circle (caller photo placeholder)
+    const avatarG = this.add.graphics().setDepth(7).setAlpha(0)
+    // Avatar background
+    avatarG.fillStyle(0x1a0810)
+    avatarG.fillCircle(W / 2, avatarY, 48)
+    // Subtle gradient on avatar
+    for (let r = 48; r > 0; r -= 3) {
+      avatarG.fillStyle(0x2a0a18, 0.04 * (1 - r/48))
+      avatarG.fillCircle(W / 2, avatarY, r)
+    }
+    // Avatar border (glowing red)
+    avatarG.lineStyle(3, 0xcc1111, 0.9)
+    avatarG.strokeCircle(W / 2, avatarY, 49)
+    avatarG.lineStyle(1, 0xff5555, 0.35)
+    avatarG.strokeCircle(W / 2, avatarY, 52)
+    // Unknown person icon inside avatar
+    // Head
+    avatarG.fillStyle(0x440010, 0.9)
+    avatarG.fillCircle(W / 2, avatarY - 12, 16)
+    // Body
+    avatarG.fillStyle(0x440010, 0.75)
+    avatarG.fillEllipse(W / 2, avatarY + 18, 44, 28)
+    // Mask/shadow over face = unknown
+    avatarG.fillStyle(0x000000, 0.55)
+    avatarG.fillCircle(W / 2, avatarY - 12, 16)
+    avatarG.fillEllipse(W / 2, avatarY + 18, 44, 28)
+    // ? over face
+    const qMark = this.add.text(W / 2, avatarY - 10, '?', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: this._fs(6, 18, 36), fill: '#cc2222',
+      stroke: '#000000', strokeThickness: 4
+    }).setOrigin(0.5).setAlpha(0).setDepth(9)
+
+    // Reveal avatar
+    this._tw_add(this.tweens.add({ targets: [avatarG, qMark], alpha: 1, duration: 500, delay: 300 }))
+    this._tw_add(this.tweens.add({ targets: [ring1, ring2, ring3], alpha: 1, duration: 500, delay: 500 }))
+
+    // Pulse rings outward
+    this._tw_add(this.tweens.add({ targets: ring1, scaleX: 1.18, scaleY: 1.18, alpha: 0, duration: 1800, repeat: -1, ease: 'Power2', delay: 600 }))
+    this._tw_add(this.tweens.add({ targets: ring2, scaleX: 1.22, scaleY: 1.22, alpha: 0, duration: 1800, repeat: -1, ease: 'Power2', delay: 950 }))
+    this._tw_add(this.tweens.add({ targets: ring3, scaleX: 1.25, scaleY: 1.25, alpha: 0, duration: 1800, repeat: -1, ease: 'Power2', delay: 1250 }))
+
+    // ── 9. CALLER ID TEXT ─────────────────────────────────────────────────
+    const callerName = this.add.text(W / 2, avatarY + 68, 'UNKNOWN', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: this._fs(5, 16, 28), fill: '#ffffff',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setAlpha(0).setDepth(8)
+
+    const callerSub = this.add.text(W / 2, avatarY + 98, 'No Caller ID', {
+      fontFamily: '"Share Tech Mono", monospace',
+      fontSize: this._fs(2.5, 9, 14), fill: '#886688'
+    }).setOrigin(0.5).setAlpha(0).setDepth(8)
+
+    this._tw_add(this.tweens.add({ targets: [callerName, callerSub], alpha: 1, duration: 420, delay: 550 }))
+
+    // ── 10. CALL TIMER (starts after answer — placeholder) ─────────────────
+    const callTimerTxt = this.add.text(W / 2, avatarY + 118, '', {
+      fontFamily: '"Share Tech Mono", monospace',
+      fontSize: this._fs(2, 8, 12), fill: '#446644'
+    }).setOrigin(0.5).setDepth(8)
+
+    // ── 11. MUTE / SPEAKER BUTTONS (decorative, no function) ──────────────
+    const btnY = H * 0.58
+    const btnG = this.add.graphics().setDepth(8).setAlpha(0)
+    // Mute button circle
+    btnG.fillStyle(0x1a1a2a, 0.9)
+    btnG.fillCircle(W * 0.25, btnY, 26)
+    btnG.lineStyle(1, 0x333355, 0.6)
+    btnG.strokeCircle(W * 0.25, btnY, 26)
+    // Speaker button circle
+    btnG.fillStyle(0x1a1a2a, 0.9)
+    btnG.fillCircle(W * 0.75, btnY, 26)
+    btnG.lineStyle(1, 0x333355, 0.6)
+    btnG.strokeCircle(W * 0.75, btnY, 26)
+    // Mute icon (mic outline)
+    btnG.fillStyle(0x555577, 0.8)
+    btnG.fillRoundedRect(W*0.25-6, btnY-14, 12, 18, 5)
+    btnG.lineStyle(2, 0x555577, 0.6)
+    btnG.arc(W*0.25, btnY+4, 10, Math.PI, 0)
+    btnG.lineBetween(W*0.25, btnY+14, W*0.25, btnY+18)
+    // Speaker icon (triangle)
+    btnG.fillStyle(0x555577, 0.8)
+    btnG.fillTriangle(W*0.75-8, btnY-8, W*0.75-8, btnY+8, W*0.75+2, btnY)
+    btnG.fillRect(W*0.75+2, btnY-4, 4, 8)
+    btnG.lineStyle(1.5, 0x555577, 0.5)
+    btnG.arc(W*0.75+6, btnY, 6, -0.8, 0.8)
+    btnG.arc(W*0.75+6, btnY, 10, -1.0, 1.0)
+
+    const muteLabel = this.add.text(W * 0.25, btnY + 36, 'mute', {
+      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#44445a'
+    }).setOrigin(0.5).setAlpha(0).setDepth(9)
+    const speakerLabel = this.add.text(W * 0.75, btnY + 36, 'speaker', {
+      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#44445a'
+    }).setOrigin(0.5).setAlpha(0).setDepth(9)
+
+    this._tw_add(this.tweens.add({ targets: [btnG, muteLabel, speakerLabel], alpha: 1, duration: 400, delay: 900 }))
+
+    // ── 12. SLIDE TO ANSWER BAR ───────────────────────────────────────────
+    const sliderY   = H - 110
+    const sliderW   = Math.min(W * 0.78, 300)
+    const sliderX   = W / 2                      // centre X
+    const trackH    = 62
+    const trackR    = trackH / 2
+    const trackL    = sliderX - sliderW / 2
+    const trackR_   = sliderX + sliderW / 2
+    const thumbR    = 27
+    const thumbStartX = trackL + thumbR + 4
+    const thumbEndX   = trackR_ - thumbR - 4
+
+    // Track background
+    const trackG = this.add.graphics().setDepth(10).setAlpha(0)
+    // Track fill (dark)
+    trackG.fillStyle(0x080812, 0.97)
+    trackG.fillRoundedRect(trackL, sliderY - trackH/2, sliderW, trackH, trackR)
+    // Track border
+    trackG.lineStyle(2, 0x22aa44, 0.5)
+    trackG.strokeRoundedRect(trackL, sliderY - trackH/2, sliderW, trackH, trackR)
+    // Inner rim
+    trackG.lineStyle(1, 0x114422, 0.35)
+    trackG.strokeRoundedRect(trackL+3, sliderY-trackH/2+3, sliderW-6, trackH-6, trackR-3)
+
+    // Slide hint label (arrows + text)
+    const slideHintText = this.add.text(sliderX + 20, sliderY, '  slide to answer  ▶▶', {
+      fontFamily: '"Share Tech Mono", monospace',
+      fontSize: this._fs(2, 8, 12), fill: '#22aa44',
+      alpha: 0.6
+    }).setOrigin(0.5).setDepth(11).setAlpha(0)
+
+    // Fill bar (shows progress)
+    const fillBarG = this.add.graphics().setDepth(11).setAlpha(0)
+    const updateFillBar = (thumbX) => {
+      fillBarG.clear()
+      const progress = (thumbX - thumbStartX) / (thumbEndX - thumbStartX)
+      if (progress <= 0) return
+      const fillW = (thumbX - trackL - thumbR) + thumbR
+      fillBarG.fillStyle(0x22aa44, 0.22)
+      fillBarG.fillRoundedRect(trackL, sliderY - trackH/2, fillW, trackH, trackR)
+      // Green glow on fill
+      fillBarG.fillStyle(0x00ff55, 0.05)
+      fillBarG.fillRoundedRect(trackL, sliderY - trackH/2, fillW, trackH, trackR)
+    }
+
+    // Thumb (the green call button)
+    const thumbG = this.add.graphics().setDepth(12).setAlpha(0)
+    const drawThumb = (tx, pressed = false) => {
+      thumbG.clear()
+      // Outer glow
+      for (let gr = thumbR + 10; gr > thumbR; gr -= 2) {
+        thumbG.fillStyle(0x22aa44, 0.025 * (1 - (gr - thumbR) / 10))
+        thumbG.fillCircle(tx, sliderY, gr)
+      }
+      // Shadow
+      thumbG.fillStyle(0x000000, pressed ? 0.2 : 0.4)
+      thumbG.fillCircle(tx + 3, sliderY + 3, thumbR)
+      // Main circle (green)
+      const baseColor = pressed ? 0x33cc55 : 0x22bb44
+      thumbG.fillStyle(baseColor)
+      thumbG.fillCircle(tx, sliderY, thumbR)
+      // Sheen
+      thumbG.fillStyle(0xffffff, pressed ? 0.1 : 0.22)
+      thumbG.fillEllipse(tx - 7, sliderY - 10, thumbR * 0.9, thumbR * 0.55)
+      // Inner ring
+      thumbG.lineStyle(1.5, 0x55ff88, 0.35)
+      thumbG.strokeCircle(tx, sliderY, thumbR - 5)
+      // Phone icon (white)
+      thumbG.fillStyle(0xffffff, 0.95)
+      // Handset body
+      thumbG.fillRoundedRect(tx - 9, sliderY - 10, 18, 20, 3)
+      // Earpiece
+      thumbG.fillStyle(baseColor)
+      thumbG.fillRoundedRect(tx - 6, sliderY - 9, 12, 6, 2)
+      // Mouthpiece
+      thumbG.fillRoundedRect(tx - 6, sliderY + 3, 12, 6, 2)
+    }
+
+    // Decline button (right side, decorative)
+    const declineG = this.add.graphics().setDepth(10).setAlpha(0)
+    const declineY = sliderY
+    declineG.fillStyle(0x0a0010, 0.9)
+    declineG.fillCircle(trackR_ + 36, declineY, 26)
+    declineG.lineStyle(2, 0xaa1111, 0.6)
+    declineG.strokeCircle(trackR_ + 36, declineY, 26)
+    // Red X (decline icon)
+    declineG.lineStyle(3, 0xcc2222, 0.85)
+    declineG.lineBetween(trackR_+28, declineY-8, trackR_+44, declineY+8)
+    declineG.lineBetween(trackR_+44, declineY-8, trackR_+28, declineY+8)
+
+    const declineLabel = this.add.text(trackR_ + 36, declineY + 38, 'decline', {
+      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#441111'
+    }).setOrigin(0.5).setDepth(11).setAlpha(0)
+
+    // Reveal slider
+    this._tw_add(this.tweens.add({ targets: [trackG, slideHintText, fillBarG, thumbG, declineG, declineLabel], alpha: 1, duration: 500, delay: 1200 }))
+    this._tw_add(this.tweens.add({ targets: [trackG, slideHintText, fillBarG, thumbG, declineG, declineLabel], alpha: 0, duration: 0, delay: 0 }))
+    this._timer(1200, () => {
+      trackG.setAlpha(1)
+      fillBarG.setAlpha(1)
+      declineG.setAlpha(1)
+      declineLabel.setAlpha(1)
+      drawThumb(thumbStartX)
+      thumbG.setAlpha(1)
+      slideHintText.setAlpha(1)
+      // Hint arrow pulse
+      this._tw_add(this.tweens.add({
+        targets: slideHintText, alpha: 0.15,
+        duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      }))
+      // Thumb idle glow pulse
+      this._tw_add(this.tweens.add({
+        targets: thumbG, alpha: 0.7,
+        duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      }))
+    })
+
+    // Bottom home bar
+    const homeG = this.add.graphics().setDepth(10)
+    homeG.fillStyle(0xffffff, 0.12)
+    homeG.fillRoundedRect(W/2 - 50, H - 8, 100, 4, 2)
+
+    // ── 13. SLIDE INTERACTION ──────────────────────────────────────────────
+    let isDragging    = false
+    let thumbX        = thumbStartX
+    let answered      = false
+
+    // Re-draw initial state
+    this._timer(1210, () => { drawThumb(thumbStartX); updateFillBar(thumbStartX) })
+
+    // Drag start
+    const onDragStart = (ptr) => {
+      if (answered) return
+      const dx = ptr.x - thumbX
+      const dy = ptr.y - sliderY
+      if (Math.sqrt(dx*dx + dy*dy) < thumbR + 18) {
+        isDragging = true
+        thumbG.setAlpha(1)  // stop pulse
+        slideHintText.setAlpha(0)
+      }
+    }
+
+    const onDragMove = (ptr) => {
+      if (!isDragging || answered) return
+      thumbX = Phaser.Math.Clamp(ptr.x, thumbStartX, thumbEndX)
+      drawThumb(thumbX, true)
+      updateFillBar(thumbX)
+
+      // Haptic-like: slight screen flash near end
+      if (thumbX > thumbEndX - 20) {
+        const f = this.add.rectangle(0,0,W,H,0x22aa44,0.04).setOrigin(0).setDepth(9999)
+        this._tw_add(this.tweens.add({ targets: f, alpha: 0, duration: 80, onComplete: () => f.destroy() }))
+      }
+    }
+
+    const onDragEnd = () => {
+      if (!isDragging || answered) return
+      isDragging = false
+
+      if (thumbX >= thumbEndX - 8) {
+        // ── ANSWERED ────────────────────────────────────────────────────
+        answered = true
+        this._onCallAnswered(
+          thumbG, trackG, fillBarG, slideHintText, declineG, declineLabel,
+          btnG, muteLabel, speakerLabel,
+          callerName, callTimerTxt, callLabel, qMark, avatarG,
+          ring1, ring2, ring3, callerSub
+        )
+      } else {
+        // Snap back
+        const snapBack = { val: thumbX }
+        this._tw_add(this.tweens.add({
+          targets: snapBack, val: thumbStartX,
+          duration: 380, ease: 'Back.out(2.5)',
+          onUpdate: () => {
+            thumbX = snapBack.val
+            drawThumb(thumbX)
+            updateFillBar(thumbX)
+          },
+          onComplete: () => {
+            // Resume hint
+            this._tw_add(this.tweens.add({
+              targets: slideHintText, alpha: 0.15,
+              duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+            }))
+            this._tw_add(this.tweens.add({
+              targets: thumbG, alpha: 0.7,
+              duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+            }))
+          }
+        }))
+      }
+    }
+
+    this.input.on('pointerdown', onDragStart)
+    this.input.on('pointermove', onDragMove)
+    this.input.on('pointerup',   onDragEnd)
+
+    // ── 14. VIBRATION / RINGING ANIMATION ────────────────────────────────
+    this._timer(800, () => {
+      const allElems = [bezelG, notchG, wallG, avatarG, qMark, callerName, callerSub]
+      const vibeLoop = () => {
+        if (answered) return
+        this._tw_add(this.tweens.add({
+          targets: allElems, x: '+=3',
+          duration: 38, yoyo: true, repeat: 5, ease: 'Linear',
+          onComplete: () => {
+            if (!answered) this._timer(2400, vibeLoop)
+          }
+        }))
+      }
+      vibeLoop()
+    })
+  }
+
+  // ── Called once the slider reaches the end ────────────────────────────────
+  _onCallAnswered(
+    thumbG, trackG, fillBarG, slideHintText, declineG, declineLabel,
+    btnG, muteLabel, speakerLabel,
+    callerName, callTimerTxt, callLabel, qMark, avatarG,
+    ring1, ring2, ring3, callerSub
+  ) {
+    const { W, H } = this
+
+    this.input.removeAllListeners()
+
+    // ── Green flash confirmation ──────────────────────────────────────────
+    const flash = this.add.rectangle(0, 0, W, H, 0x22ff55, 0).setOrigin(0).setDepth(9800)
+    this._tw_add(this.tweens.add({
+      targets: flash, fillAlpha: 0.28,
+      duration: 160, yoyo: true, repeat: 1,
+      onComplete: () => flash.destroy()
+    }))
+
+    // Slide elements out
+    this._tw_add(this.tweens.add({
+      targets: [thumbG, trackG, fillBarG, slideHintText, declineG, declineLabel],
+      alpha: 0, duration: 300, ease: 'Power2'
+    }))
+
+    // ── CALL CONNECTED HEADER ─────────────────────────────────────────────
+    this._tw_add(this.tweens.add({ targets: callLabel, alpha: 0, duration: 200 }))
+    this._timer(220, () => {
+      callLabel.setText('Call Connected')
+      callLabel.setStyle({ fill: '#22aa44' })
+      this._tw_add(this.tweens.add({ targets: callLabel, alpha: 1, duration: 300 }))
+    })
+
+    // Stop ring pulse, switch to steady connected glow
+    this._tw_add(this.tweens.add({ targets: [ring1, ring2, ring3], alpha: 0, duration: 400 }))
+    this._tw_add(this.tweens.add({ targets: qMark, alpha: 0, duration: 300 }))
+
+    // Avatar border goes green
+    avatarG.clear()
+    avatarG.fillStyle(0x081a10)
+    avatarG.fillCircle(W / 2, H * 0.22, 48)
+    for (let r = 48; r > 0; r -= 3) {
+      avatarG.fillStyle(0x0a2a10, 0.04 * (1 - r/48))
+      avatarG.fillCircle(W / 2, H * 0.22, r)
+    }
+    avatarG.lineStyle(3, 0x22cc44, 0.9)
+    avatarG.strokeCircle(W / 2, H * 0.22, 49)
+    avatarG.lineStyle(1, 0x55ff88, 0.35)
+    avatarG.strokeCircle(W / 2, H * 0.22, 52)
+    // Silhouette
+    avatarG.fillStyle(0x114422, 0.9)
+    avatarG.fillCircle(W / 2, H*0.22 - 12, 16)
+    avatarG.fillEllipse(W / 2, H*0.22 + 18, 44, 28)
+
+    // ── CALL TIMER ────────────────────────────────────────────────────────
+    let secs = 0
+    const timerEvent = this.time.addEvent({
+      delay: 1000, repeat: 60,
+      callback: () => {
+        secs++
+        const m = Math.floor(secs / 60).toString().padStart(2,'0')
+        const s = (secs % 60).toString().padStart(2,'0')
+        callTimerTxt.setText(m + ':' + s)
+      }
+    })
+    this._tmr.push(timerEvent)
+
+    // ── SHOW MUTE/SPEAKER BUTTONS ─────────────────────────────────────────
+    this._tw_add(this.tweens.add({ targets: [btnG, muteLabel, speakerLabel], alpha: 1, duration: 400, delay: 200 }))
+
+    // ── SOUND WAVE ANIMATION (visual only) ───────────────────────────────
+    const waveG = this.add.graphics().setDepth(8).setAlpha(0)
+    this._tw_add(this.tweens.add({ targets: waveG, alpha: 1, duration: 300, delay: 300 }))
+
+    const waveY  = H * 0.52
+    const waveW  = Math.min(W * 0.7, 240)
+    const bars   = 24
+    const barPad = 3
+    const barW   = (waveW - (bars - 1) * barPad) / bars
+
+    let waveTime = 0
+    const waveUpdate = this.time.addEvent({
+      delay: 60, repeat: -1,
+      callback: () => {
+        if (this._callEnded) return
+        waveG.clear()
+        waveTime += 0.18
+        for (let b = 0; b < bars; b++) {
+          const bx  = W/2 - waveW/2 + b * (barW + barPad)
+          const amp = 6 + Math.sin(waveTime + b * 0.55) * 10 + Math.sin(waveTime * 1.7 + b * 0.3) * 5
+          const col = b % 3 === 0 ? 0x33ff66 : b % 3 === 1 ? 0x22cc44 : 0x118833
+          waveG.fillStyle(col, 0.7)
+          waveG.fillRoundedRect(bx, waveY - amp/2, barW, amp, 1)
+          // Glow
+          waveG.fillStyle(col, 0.15)
+          waveG.fillRoundedRect(bx - 1, waveY - amp/2 - 2, barW + 2, amp + 4, 1)
+        }
+      }
+    })
+    this._tmr.push(waveUpdate)
+
+    // End call button (big red circle, appears after connected)
+    const endBtnY = H - 120
+    const endBtnG = this.add.graphics().setDepth(12).setAlpha(0)
+    endBtnG.fillStyle(0x0a0010, 0.95)
+    endBtnG.fillCircle(W / 2, endBtnY, 32)
+    endBtnG.lineStyle(2, 0xcc1111, 0.8)
+    endBtnG.strokeCircle(W / 2, endBtnY, 32)
+    // Hangup handset icon (rotated)
+    endBtnG.fillStyle(0xcc1111, 0.9)
+    endBtnG.fillRoundedRect(W/2-11, endBtnY-8, 22, 16, 4)
+    endBtnG.fillStyle(0x0a0010, 0.9)
+    endBtnG.fillRoundedRect(W/2-8, endBtnY-7, 8, 8, 2)
+    endBtnG.fillRoundedRect(W/2+1, endBtnY-7, 8, 8, 2)
+    const endLabel = this.add.text(W/2, endBtnY + 44, 'end call', {
+      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#441111'
+    }).setOrigin(0.5).setDepth(12).setAlpha(0)
+    this._tw_add(this.tweens.add({ targets: [endBtnG, endLabel], alpha: 1, duration: 400, delay: 600 }))
+
+    // ── DIALOGUE STARTS AUTOMATICALLY after 1.2s ─────────────────────────
+    this._timer(1200, () => {
+      this._callEnded = false
+      this._runCallDialogue(PHASE3_DIALOGUE, endBtnG, endLabel, waveG, callTimerTxt, timerEvent, waveUpdate)
+    })
+  }
+
+  // ── Dialogue runs on top of the call screen ───────────────────────────────
+  _runCallDialogue(lines, endBtnG, endLabel, waveG, callTimerTxt, timerEvent, waveUpdate) {
+    const { W, H } = this
+    let lineIndex = 0
+
+    const dialoguePanel = this._buildPokemonDialoguePanel()
+    dialoguePanel.setAlpha(0).setDepth(60)
+    this._tw_add(this.tweens.add({ targets: dialoguePanel, alpha: 1, duration: 280 }))
+
+    const showLine = () => {
+      if (lineIndex >= lines.length) {
+        // All dialogue done — end call
+        this._tw_add(this.tweens.add({
+          targets: dialoguePanel, alpha: 0, duration: 260,
+          onComplete: () => {
+            dialoguePanel.destroy()
+            this._endCall(endBtnG, endLabel, waveG, callTimerTxt, timerEvent, waveUpdate)
+          }
+        }))
+        return
+      }
+      const lineData = lines[lineIndex]
+      this._fillPokemonDialogue(dialoguePanel, lineData, () => {
+        const advance = () => {
+          this.input.off('pointerdown', advance)
+          this.input.keyboard?.off('keydown-SPACE', advance)
+          this.input.keyboard?.off('keydown-ENTER', advance)
+          lineIndex++
+          showLine()
+        }
+        const autoTimer = this._timer(3500, advance)
+        this.input.once('pointerdown', () => { autoTimer?.remove(); advance() })
+        this.input.keyboard?.once('keydown-SPACE', () => { autoTimer?.remove(); advance() })
+        this.input.keyboard?.once('keydown-ENTER', () => { autoTimer?.remove(); advance() })
       })
+    }
+    showLine()
+  }
+
+  _endCall(endBtnG, endLabel, waveG, callTimerTxt, timerEvent, waveUpdate) {
+    const { W, H } = this
+    this._callEnded = true
+
+    timerEvent?.remove()
+    waveUpdate?.remove()
+
+    // Waveform stops
+    this._tw_add(this.tweens.add({ targets: waveG, alpha: 0, duration: 300 }))
+
+    // Red flash
+    const flash2 = this.add.rectangle(0,0,W,H,0xff1111,0).setOrigin(0).setDepth(9800)
+    this._tw_add(this.tweens.add({
+      targets: flash2, fillAlpha: 0.18,
+      duration: 150, yoyo: true, repeat: 1,
+      onComplete: () => flash2.destroy()
+    }))
+
+    // Call ended text
+    const endedTxt = this.add.text(W/2, H*0.50, 'Call Ended', {
+      fontFamily: '"Share Tech Mono", monospace',
+      fontSize: this._fs(3, 11, 18), fill: '#883333'
+    }).setOrigin(0.5).setAlpha(0).setDepth(20)
+    this._tw_add(this.tweens.add({ targets: endedTxt, alpha: 1, duration: 400 }))
+
+    this._tw_add(this.tweens.add({ targets: [endBtnG, endLabel], alpha: 0, duration: 300 }))
+
+    // Transition to phase 4
+    this._timer(1400, () => {
+      this._blackOut(700, () => this._phase4_whoAreThey())
+    })
+  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // POKEMON-STYLE DIALOGUE ENGINE
+  // ═══════════════════════════════════════════════════════════════════════════
+  _runDialogueQueue(lines, startDelay, onFinish) {
+    const { W, H } = this
+    let lineIndex = 0
+
+    const dialoguePanel = this._buildPokemonDialoguePanel()
+    dialoguePanel.setAlpha(0)
+
+    this._timer(startDelay, () => {
+      this._tw_add(this.tweens.add({
+        targets: dialoguePanel, alpha: 1, duration: 280, ease: 'Power2',
+        onComplete: () => showLine()
+      }))
     })
 
-    this._timer(16800, () => this._blackOut(550, () => this._phase4_whoAreThey()))
+    const showLine = () => {
+      if (lineIndex >= lines.length) {
+        this._tw_add(this.tweens.add({
+          targets: dialoguePanel, alpha: 0, duration: 260,
+          onComplete: () => {
+            dialoguePanel.destroy()
+            onFinish?.()
+          }
+        }))
+        return
+      }
+      const lineData = lines[lineIndex]
+      this._fillPokemonDialogue(dialoguePanel, lineData, () => {
+        // Tap / space to advance
+        const advance = () => {
+          this.input.off('pointerdown', advance)
+          this.input.keyboard?.off('keydown-SPACE', advance)
+          this.input.keyboard?.off('keydown-ENTER', advance)
+          lineIndex++
+          showLine()
+        }
+        // Auto-advance after 3.5s or wait for tap
+        const autoTimer = this._timer(3500, advance)
+        this.input.once('pointerdown', () => { autoTimer?.remove(); advance() })
+        this.input.keyboard?.once('keydown-SPACE', () => { autoTimer?.remove(); advance() })
+        this.input.keyboard?.once('keydown-ENTER', () => { autoTimer?.remove(); advance() })
+      })
+    }
+  }
+
+  _buildPokemonDialoguePanel() {
+    const { W, H } = this
+    const isMobile = W < 500
+    const panelH   = isMobile ? H * 0.32 : H * 0.28
+    const panelY   = H - panelH - 12
+    const panelW   = W - 24
+
+    const container = this.add.container(12, panelY).setDepth(50)
+
+    // Panel shadow
+    const shadow = this.add.graphics()
+    shadow.fillStyle(0x000000, 0.6)
+    shadow.fillRoundedRect(4, 4, panelW, panelH, 10)
+
+    // Main panel body
+    const panel = this.add.graphics()
+    panel.fillStyle(0x06060e, 0.97)
+    panel.fillRoundedRect(0, 0, panelW, panelH, 10)
+
+    // Top decorative bar
+    panel.fillStyle(0x1a1a3a)
+    panel.fillRoundedRect(0, 0, panelW, 6, { tl: 10, tr: 10, bl: 0, br: 0 })
+
+    // Border (double line)
+    panel.lineStyle(3, 0x3a3a6a, 0.9)
+    panel.strokeRoundedRect(0, 0, panelW, panelH, 10)
+    panel.lineStyle(1, 0x8888aa, 0.2)
+    panel.strokeRoundedRect(3, 3, panelW - 6, panelH - 6, 8)
+
+    // Portrait area
+    const portraitSize  = isMobile ? 52 : 64
+    const portraitX     = 12
+    const portraitY     = 10
+    const portraitPanel = this.add.graphics()
+    portraitPanel.fillStyle(0x0a0a20)
+    portraitPanel.fillRoundedRect(portraitX, portraitY, portraitSize, portraitSize, 6)
+    portraitPanel.lineStyle(2, 0x3a3a6a, 0.8)
+    portraitPanel.strokeRoundedRect(portraitX, portraitY, portraitSize, portraitSize, 6)
+    // Portrait placeholder frame
+    portraitPanel.lineStyle(1, 0x222244, 0.6)
+    portraitPanel.lineBetween(portraitX+4, portraitY+4, portraitX+portraitSize-4, portraitY+portraitSize-4)
+    portraitPanel.lineBetween(portraitX+4, portraitY+portraitSize-4, portraitX+portraitSize-4, portraitY+4)
+    // "PHOTO" placeholder text
+    const portraitPlaceholder = this.add.text(portraitX + portraitSize/2, portraitY + portraitSize/2, 'PHOTO', {
+      fontFamily: '"Share Tech Mono", monospace', fontSize: 7, fill: '#222244'
+    }).setOrigin(0.5)
+
+    // Colour accent strip on left
+    const accentStrip = this.add.graphics()
+    accentStrip.fillStyle(0x7b2fbe, 1)  // default, updated per line
+    accentStrip.fillRoundedRect(portraitX + portraitSize + 8, portraitY + 2, 3, portraitSize - 4, 2)
+
+    // Speaker name badge
+    const speakerBadge = this.add.graphics()
+    const speakerText  = this.add.text(
+      portraitX + portraitSize + 20,
+      portraitY + 2, 'SPEAKER',
+      { fontFamily: '"Share Tech Mono", monospace', fontSize: isMobile ? 7 : 9, fill: '#aaaacc' }
+    )
+
+    // Dialogue text
+    const textX = portraitX + portraitSize + 20
+    const textY = portraitY + (isMobile ? 20 : 24)
+    const textW = panelW - textX - 16
+    const dialogueText = this.add.text(textX, textY, '', {
+      fontFamily: '"Share Tech Mono", monospace',
+      fontSize: isMobile ? 9 : 11,
+      fill: '#d8ddf0',
+      wordWrap: { width: textW },
+      lineSpacing: isMobile ? 4 : 6,
+    })
+
+    // Advance indicator (blinking ▼)
+    const advanceArrow = this.add.text(panelW - 20, panelH - 20, '▼', {
+      fontFamily: '"Share Tech Mono", monospace', fontSize: 10, fill: '#5555aa'
+    }).setAlpha(0)
+    this._tw_add(this.tweens.add({
+      targets: advanceArrow, alpha: 0.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+    }))
+
+    container.add([shadow, panel, portraitPanel, accentStrip, speakerBadge, speakerText, portraitPlaceholder, dialogueText, advanceArrow])
+
+    // Store refs for updating
+    container.setData('refs', {
+      accentStrip, speakerText, dialogueText, advanceArrow,
+      portraitPanel, portraitPlaceholder, portraitSize, portraitX, portraitY,
+      isMobile, textX, textY, textW, panelW, panelH
+    })
+
+    return container
+  }
+
+  _fillPokemonDialogue(container, lineData, onDone) {
+    const refs = container.getData('refs')
+    const {
+      accentStrip, speakerText, dialogueText, advanceArrow,
+      portraitX, portraitY, portraitSize, isMobile
+    } = refs
+
+    // Remove old portrait char if any
+    const oldPortrait = container.getData('portraitChar')
+    if (oldPortrait) oldPortrait.destroy()
+
+    // Update speaker name
+    speakerText.setText(lineData.speaker)
+    speakerText.setStyle({ fill: lineData.color })
+
+    // Update accent strip colour
+    accentStrip.clear()
+    const intCol = parseInt(lineData.color.replace('#', '0x'))
+    accentStrip.fillStyle(intCol)
+    accentStrip.fillRoundedRect(portraitX + portraitSize + 8, portraitY + 2, 3, portraitSize - 4, 2)
+
+    // Draw portrait — if a member index given, show their char sprite, else show ? 
+    if (lineData.portrait !== null && lineData.portrait !== undefined) {
+      const m = MEMBERS[lineData.portrait]
+      const pScale = isMobile ? 0.58 : 0.72
+      const portraitChar = this.add.image(
+        portraitX + portraitSize / 2,
+        portraitY + portraitSize / 2 + 4,
+        `char_${lineData.portrait}`
+      ).setScale(pScale).setDepth(55)
+      container.add(portraitChar)
+      container.setData('portraitChar', portraitChar)
+    } else {
+      // Unknown caller — red pulsing ?
+      const unk = this.add.text(
+        portraitX + portraitSize / 2, portraitY + portraitSize / 2, '?',
+        {
+          fontFamily: '"Press Start 2P", monospace',
+          fontSize: isMobile ? 18 : 22, fill: '#cc2222',
+          stroke: '#000000', strokeThickness: 4
+        }
+      ).setOrigin(0.5).setDepth(55)
+      this._tw_add(this.tweens.add({ targets: unk, alpha: 0.4, duration: 400, yoyo: true, repeat: -1 }))
+      container.add(unk)
+      container.setData('portraitChar', unk)
+    }
+
+    // Typewriter effect
+    advanceArrow.setAlpha(0)
+    dialogueText.setText('')
+    const fullText = lineData.text
+    let charIdx    = 0
+    const typeInterval = this.time.addEvent({
+      delay: 40,
+      repeat: fullText.length - 1,
+      callback: () => {
+        charIdx++
+        dialogueText.setText(fullText.substring(0, charIdx))
+        if (charIdx >= fullText.length) {
+          // Show advance arrow
+          this._tw_add(this.tweens.add({ targets: advanceArrow, alpha: 1, duration: 200 }))
+          onDone?.()
+        }
+      }
+    })
+    this._tmr.push(typeInterval)
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -654,48 +1757,74 @@ export class PreludeScene extends Phaser.Scene {
     const { W, H } = this
 
     this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0)
-    // this._cornerVignette()  // Removed
-    // this._scanlines()  // Removed
     this._grain()
 
-    // Blood-red ambient
-    const redGlow = this.add.ellipse(W / 2, H / 2, W * 1.3, H * 1.1, 0x1a0000, 0.6)
-    this._tween(redGlow, { scaleX: 1.1, scaleY: 1.1, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' })
+    // Deep crimson background glow
+    const redBg = this.add.graphics()
+    for (let r = 140; r > 0; r -= 8) {
+      redBg.fillStyle(0x1e0000, 0.018 * (1 - r/140))
+      redBg.fillEllipse(W/2, H/2, r*3, r*2.2)
+    }
+    this._tw_add(this.tweens.add({
+      targets: redBg, scaleX: 1.08, scaleY: 1.08,
+      duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+    }))
 
-    // Glitch lead
+    // Chromatic aberration WHO ARE THEY text
+    const style = { stroke: '#000000', strokeThickness: 6, lineSpacing: 10, align: 'center' }
+    const sz    = this._fs(9.5, 24, 66)
+    const msg   = 'WHO ARE\n"THEY" ???'
 
-    // Main text
-    const who = this._txt(W / 2, H * 0.41, 'WHO ARE\n"THEY" ???', 'pixel', this._fs(9, 26, 60), '#ffffff')
-      .setOrigin(0.5).setAlpha(0).setDepth(10)
-      .setStyle({ stroke: '#000000', strokeThickness: 5, lineSpacing: 8, align: 'center' })
+    const whoR  = this.add.text(W/2 + 5, H*0.40, msg, {
+      fontFamily: '"Press Start 2P", monospace', fontSize: sz, fill: '#ff0033',
+      ...style
+    }).setOrigin(0.5).setAlpha(0).setDepth(8)
+    const whoB  = this.add.text(W/2 - 5, H*0.40, msg, {
+      fontFamily: '"Press Start 2P", monospace', fontSize: sz, fill: '#0033ff',
+      ...style
+    }).setOrigin(0.5).setAlpha(0).setDepth(8)
+    const who   = this.add.text(W/2, H*0.40, msg, {
+      fontFamily: '"Press Start 2P", monospace', fontSize: sz, fill: '#ffffff',
+      ...style
+    }).setOrigin(0.5).setAlpha(0).setDepth(10)
 
-    // Chromatic aberration copies
-    const whoR = this._txt(W / 2 + 4, H * 0.41, 'WHO ARE\n"THEY" ???', 'pixel', this._fs(9, 26, 60), '#ff0022')
-      .setOrigin(0.5).setAlpha(0).setDepth(8).setStyle({ lineSpacing: 8, align: 'center' })
-    const whoB = this._txt(W / 2 - 4, H * 0.41, 'WHO ARE\n"THEY" ???', 'pixel', this._fs(9, 26, 60), '#0033ff')
-      .setOrigin(0.5).setAlpha(0).setDepth(8).setStyle({ lineSpacing: 8, align: 'center' })
+    this._tw_add(this.tweens.add({ targets: whoR, alpha: 0.25, duration: 500 }))
+    this._tw_add(this.tweens.add({ targets: whoB, alpha: 0.25, duration: 500 }))
+    this._tw_add(this.tweens.add({ targets: who,  alpha: 1,    duration: 500, ease: 'Power2' }))
 
-    this._tween(who,  { alpha: 1, duration: 480, ease: 'Power2' })
-    this._tween(whoR, { alpha: 0.22, duration: 480 })
-    this._tween(whoB, { alpha: 0.22, duration: 480 })
+    // Jitter chroma aberrations
+    this._tw_add(this.tweens.add({
+      targets: whoR, x: W/2 + 6, duration: 80, yoyo: true, repeat: 30, ease: 'Linear'
+    }))
+    this._tw_add(this.tweens.add({
+      targets: whoB, x: W/2 - 6, duration: 80, yoyo: true, repeat: 30, ease: 'Linear'
+    }))
 
-    // Flash flicker
+    // Flash strobes
     this._timer(600, () => {
-      for (let i = 0; i < 5; i++) {
-        this._timer(i * 80, () => {
-          const f = this.add.rectangle(0, 0, W, H, 0xffffff, 0.05).setOrigin(0).setDepth(9900)
-          this._tween(f, { alpha: 0, duration: 55, onComplete: () => f.destroy() })
+      for (let i = 0; i < 4; i++) {
+        this._timer(i * 90, () => {
+          const f = this.add.rectangle(0, 0, W, H, 0xffffff, 0.06).setOrigin(0).setDepth(9900)
+          this._tw_add(this.tweens.add({ targets: f, alpha: 0, duration: 60, onComplete: () => f.destroy() }))
         })
       }
     })
-
-    // Red strobe
-    this._timer(1100, () => {
+    this._timer(1200, () => {
       const strobe = this.add.rectangle(0, 0, W, H, 0xff0000, 0).setOrigin(0).setDepth(9800)
-      this._tween(strobe, { fillAlpha: 0.07, duration: 180, yoyo: true, repeat: 6 })
+      this._tw_add(this.tweens.add({
+        targets: strobe, fillAlpha: 0.08, duration: 200, yoyo: true, repeat: 5
+      }))
     })
 
-    this._timer(3500, () => this._blackOut(650, () => this._phase5_theyReveal()))
+    // Sub text
+    this._timer(1000, () => {
+      const sub = this._label(W/2, H * 0.70, '...who could possibly be strong enough?', this._fs(2, 7, 11), '#331111')
+        .setOrigin(0.5).setAlpha(0).setDepth(9)
+      this._tw_add(this.tweens.add({ targets: sub, alpha: 1, duration: 500 }))
+      this._tw_add(this.tweens.add({ targets: sub, alpha: 0.25, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 600 }))
+    })
+
+    this._timer(3800, () => this._blackOut(700, () => this._phase5_theyReveal()))
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -705,104 +1834,152 @@ export class PreludeScene extends Phaser.Scene {
     this._clearScene()
     const { W, H } = this
 
-    this.add.rectangle(0, 0, W, H, 0x030008).setOrigin(0)
-    // this._cornerVignette()  // Removed
-    // this._scanlines()  // Removed
+    this.add.rectangle(0, 0, W, H, 0x020007).setOrigin(0)
     this._grain()
 
-    // Purple nebula centre
+    // Purple cosmic nebula
     const nebG = this.add.graphics().setDepth(0)
-    for (let r = 160; r > 0; r -= 10) {
-      nebG.fillStyle(0x110022, 0.012 * (1 - r / 160))
-      nebG.fillEllipse(W / 2, H * 0.44, r * 2.2, r * 1.6)
+    for (let r = 200; r > 0; r -= 10) {
+      nebG.fillStyle(0x120022, 0.010 * (1 - r/200))
+      nebG.fillEllipse(W/2, H*0.44, r*2.5, r*1.8)
+    }
+    // Secondary warm nebula
+    for (let r = 130; r > 0; r -= 10) {
+      nebG.fillStyle(0x221000, 0.008 * (1 - r/130))
+      nebG.fillEllipse(W*0.55, H*0.38, r*2.8, r*1.4)
     }
 
-    // Dust particles
-    const dustG = this.add.graphics().setAlpha(0.4).setDepth(0)
-    for (let i = 0; i < 140; i++) {
-      const sz = Math.random() * 1.4 + 0.3
-      dustG.fillStyle(0xffffff, Math.random() * 0.7 + 0.15)
-      dustG.fillCircle(Math.random() * W, Math.random() * H, sz)
+    // Star field
+    const starG = this.add.graphics().setDepth(0).setAlpha(0.7)
+    for (let i = 0; i < 200; i++) {
+      const sz   = Math.random() * 1.6 + 0.2
+      const alp  = Math.random() * 0.8 + 0.1
+      const colv = Math.random() < 0.3 ? 0xddddff : Math.random() < 0.5 ? 0xffddaa : 0xffffff
+      starG.fillStyle(colv, alp)
+      starG.fillCircle(Math.random() * W, Math.random() * H * 0.85, sz)
     }
+    // Twinkling
+    this._tw_add(this.tweens.add({ targets: starG, alpha: 0.4, duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' }))
 
-    // Sequence
+    // Sequence of reveal texts
     const seq = [
-      { text: 'THEY refer to...',         col: '#334455', size: 3.2, delay: 200  },
-      { text: 'THE STRONGEST',            col: '#8844aa', size: 7,   delay: 1600 },
-      { text: 'MEMBERS OF SI LAB.',       col: '#8844aa', size: 5.2, delay: 3100 },
-      { text: '— THE GOATS —',            col: '#cc9900', size: 5.2, delay: 4700 },
-      { text: 'THE LEGENDS.',             col: '#ffcc00', size: 8.5, delay: 6200 },
-      { text: 'THE ONES WHO GUIDED US.',  col: '#886644', size: 3.2, delay: 7700 },
+      { text: 'THEY refer to...',        col: '#2d3a55', sz: 2.8, delay: 250  },
+      { text: 'THE STRONGEST',           col: '#7733aa', sz: 7.5, delay: 1700 },
+      { text: 'MEMBERS OF SI LAB.',      col: '#8844bb', sz: 5.5, delay: 3200 },
+      { text: '— THE G.O.A.T.S —',       col: '#cc8800', sz: 5.5, delay: 4800 },
+      { text: 'THE LEGENDS.',            col: '#ffcc00', sz: 9.5, delay: 6300 },
+      { text: 'THE ONES WHO GUIDED US.', col: '#887755', sz: 2.8, delay: 7900 },
     ]
 
-    seq.forEach(({ text, col, size, delay }) => {
-      const sz = this._fs(size, size * 2.8, size * 5.5)
-      const t  = this._txt(W / 2, H * 0.47, text, 'pixel', sz, col)
-        .setOrigin(0.5).setAlpha(0).setDepth(10)
-        .setStyle({ stroke: '#000000', strokeThickness: 2, align: 'center' })
+    seq.forEach(({ text, col, sz, delay }) => {
+      const size  = this._fs(sz, sz * 2.4, sz * 5.2)
+      const yBase = H * 0.44
+      const t     = this.add.text(W/2, yBase + 16, text, {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: size, fill: col, align: 'center',
+        stroke: '#000000', strokeThickness: 3, lineSpacing: 8,
+      }).setOrigin(0.5).setAlpha(0).setDepth(10)
+
       this._timer(delay, () => {
-        this._tween(t, { alpha: 1, y: H * 0.45, duration: 360, ease: 'Back.out(1.2)' })
-        this._timer(980, () => {
-          this._tween(t, { alpha: 0, y: H * 0.41, scaleX: 0.88, scaleY: 0.88, duration: 360, ease: 'Power2', onComplete: () => t.destroy() })
+        this._tw_add(this.tweens.add({
+          targets: t, alpha: 1, y: yBase,
+          duration: 380, ease: 'Back.out(1.4)'
+        }))
+        this._timer(1050, () => {
+          this._tw_add(this.tweens.add({
+            targets: t, alpha: 0, y: yBase - 10, scaleX: 0.9, scaleY: 0.9,
+            duration: 360, ease: 'Power2',
+            onComplete: () => t.destroy()
+          }))
         })
       })
     })
 
-    // ── FINAL REVEAL ─────────────────────────────────────────────────────────
-    this._timer(9200, () => {
-      // God rays
+    // ── FINAL REVEAL ──────────────────────────────────────────────────────
+    this._timer(9500, () => {
+      // Expanding light ring burst
+      const burstG = this.add.graphics().setAlpha(0).setDepth(4)
+      for (let r = 5; r <= 6; r++) {
+        burstG.lineStyle(r * 2, 0xffcc00, 0.05 - r * 0.005)
+        burstG.strokeCircle(W/2, H*0.42, 0)
+      }
+      this._tw_add(this.tweens.add({ targets: burstG, alpha: 1, duration: 300 }))
+      this._tw_add(this.tweens.add({ targets: burstG, scaleX: 4, scaleY: 4, alpha: 0, duration: 1000, ease: 'Power2' }))
+
+      // Rotating god rays
       const raysG = this.add.graphics().setAlpha(0).setDepth(2)
-      for (let i = 0; i < 20; i++) {
-        const angle = (i / 20) * Math.PI * 2
-        const len   = Math.min(W, H) * 0.62
-        const thick = i % 2 === 0 ? 3 : 1
-        const a     = i % 2 === 0 ? 0.05 : 0.02
+      for (let i = 0; i < 24; i++) {
+        const angle = (i / 24) * Math.PI * 2
+        const len   = Math.max(W, H) * 0.7
+        const thick = i % 3 === 0 ? 4 : 2
+        const a     = i % 3 === 0 ? 0.055 : 0.022
         raysG.lineStyle(thick, 0xffcc00, a)
-        raysG.lineBetween(W / 2, H * 0.43, W / 2 + Math.cos(angle) * len, H * 0.43 + Math.sin(angle) * len)
+        raysG.lineBetween(W/2, H*0.42, W/2 + Math.cos(angle)*len, H*0.42 + Math.sin(angle)*len)
       }
-      this._tween(raysG, { alpha: 1, duration: 900 })
-      this._tween(raysG, { rotation: Math.PI * 2, duration: 18000, repeat: -1, ease: 'Linear' })
+      this._tw_add(this.tweens.add({ targets: raysG, alpha: 1, duration: 900 }))
+      this._tw_add(this.tweens.add({
+        targets: raysG, rotation: Math.PI * 2,
+        duration: 15000, repeat: -1, ease: 'Linear'
+      }))
 
-      // Glow circle
+      // Glow halo
       const glowG = this.add.graphics().setAlpha(0).setDepth(3)
-      for (let r = 120; r > 0; r -= 8) {
-        glowG.fillStyle(0xffcc00, 0.007 * (1 - r / 120))
-        glowG.fillCircle(W / 2, H * 0.43, r)
+      for (let r = 140; r > 0; r -= 8) {
+        glowG.fillStyle(0xffcc00, 0.007 * (1 - r/140))
+        glowG.fillCircle(W/2, H*0.42, r)
       }
-      this._tween(glowG, { alpha: 1, duration: 700, delay: 200 })
+      this._tw_add(this.tweens.add({ targets: glowG, alpha: 1, duration: 700, delay: 200 }))
+      // Breathe
+      this._tw_add(this.tweens.add({
+        targets: glowG, scaleX: 1.12, scaleY: 1.12,
+        duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 700
+      }))
 
-      // Orange glow shadow text
-      const theyShadow = this._txt(W / 2 + 4, H * 0.41, 'T H E Y', 'pixel', this._fs(12, 36, 90), '#ff5500')
-        .setOrigin(0.5).setAlpha(0).setDepth(4)
-        .setStyle({ stroke: '#000000', strokeThickness: 10 })
-      // Main text
-      const they = this._txt(W / 2, H * 0.41, 'T H E Y', 'pixel', this._fs(12, 36, 90), '#ffdd00')
-        .setOrigin(0.5).setAlpha(0).setDepth(5)
-        .setStyle({ stroke: '#000000', strokeThickness: 7, letterSpacing: 8 })
+      // "T H E Y" — layered shadow + main
+      const shadowTxt = this.add.text(W/2 + 5, H*0.39 + 5, 'T H E Y', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: this._fs(11.5, 32, 96), fill: '#ff5500',
+        stroke: '#000000', strokeThickness: 12
+      }).setOrigin(0.5).setAlpha(0).setDepth(4)
 
-      this._tween(theyShadow, { alpha: 0.5, duration: 700, ease: 'Back.out(1.2)' })
-      this._tween(they,       { alpha: 1,   duration: 700, ease: 'Back.out(1.2)' })
+      const mainTxt = this.add.text(W/2, H*0.39, 'T H E Y', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: this._fs(11.5, 32, 96), fill: '#ffdd00',
+        stroke: '#000000', strokeThickness: 8
+      }).setOrigin(0.5).setAlpha(0).setDepth(5)
+
+      this._tw_add(this.tweens.add({ targets: shadowTxt, alpha: 0.55, duration: 750, ease: 'Back.out(1.3)' }))
+      this._tw_add(this.tweens.add({ targets: mainTxt,   alpha: 1,    duration: 750, ease: 'Back.out(1.3)' }))
+
       // Eternal pulse
-      this._tween(they, { scaleX: 1.035, scaleY: 1.035, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 900 })
+      this._tw_add(this.tweens.add({
+        targets: [mainTxt, shadowTxt], scaleX: 1.04, scaleY: 1.04,
+        duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 900
+      }))
 
       // Subtitle
-      const sub = this._txt(W / 2, H * 0.61, '— THE SENIORS WHO CHANGED EVERYTHING —', 'mono', this._fs(2, 6, 11), '#443322')
-        .setOrigin(0.5).setAlpha(0).setDepth(5)
-      this._tween(sub, { alpha: 1, duration: 600, delay: 500 })
+      const sub = this._label(W/2, H*0.61, '— THE SENIORS WHO CHANGED EVERYTHING —', this._fs(2, 6, 12), '#443322')
+        .setOrigin(0.5).setAlpha(0).setDepth(6)
+      this._tw_add(this.tweens.add({ targets: sub, alpha: 1, duration: 650, delay: 500 }))
 
-      // Prompt
-      const prompt = this._buildPrompt()
-      this._tween(prompt, { alpha: 1, duration: 600, delay: 1500 })
+      // Shimmer on subtitle
+      this._tw_add(this.tweens.add({
+        targets: sub, alpha: 0.4, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1400
+      }))
 
-      this._timer(1700, () => {
-        const go = () => {
+      // Continue prompt
+      this._timer(1800, () => {
+        const prompt = this._buildPrompt()
+        this._tw_add(this.tweens.add({ targets: prompt, alpha: 1, duration: 600 }))
+
+        const advance = () => {
           this.input.removeAllListeners()
           this.input.keyboard?.removeAllListeners()
-          this._blackOut(600, () => this.scene.start('CharSelectScene'))
+          this._blackOut(650, () => this.scene.start('CharSelectScene'))
         }
-        this.input.once('pointerdown', go)
-        this.input.keyboard?.once('keydown-ENTER', go)
-        this.input.keyboard?.once('keydown-SPACE', go)
+        this.input.once('pointerdown', advance)
+        this.input.keyboard?.once('keydown-ENTER', advance)
+        this.input.keyboard?.once('keydown-SPACE', advance)
       })
     })
   }
@@ -810,248 +1987,219 @@ export class PreludeScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════════════════════════════════
   // UI HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
+
   _buildNameTag(x, y, name, color) {
     const container = this.add.container(x, y)
-    const tw  = name.length * 6 + 18
-    const hex = '#' + color.toString(16).padStart(6, '0')
-    const bg  = this.add.graphics()
-    bg.fillStyle(0x000000, 0.65)
-    bg.fillRoundedRect(-tw / 2, -9, tw, 18, 3)
-    bg.lineStyle(1, color, 0.65)
-    bg.strokeRoundedRect(-tw / 2, -9, tw, 18, 3)
-    const t = this.add.text(0, 0, name, {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 8, color: hex,
+    const hex       = '#' + color.toString(16).padStart(6, '0')
+    const tw        = Math.max(name.length * 7 + 20, 50)
+
+    const bg = this.add.graphics()
+    bg.fillStyle(0x000000, 0.75)
+    bg.fillRoundedRect(-tw/2, -10, tw, 20, 4)
+    // Colour top strip
+    bg.fillStyle(color, 0.85)
+    bg.fillRect(-tw/2, -10, tw, 4)
+    // Border
+    bg.lineStyle(1, color, 0.6)
+    bg.strokeRoundedRect(-tw/2, -10, tw, 20, 4)
+
+    const nameT = this.add.text(0, 2, name, {
+      fontFamily: '"Share Tech Mono", monospace', fontSize: 8, fill: '#ccccdd'
     }).setOrigin(0.5)
-    container.add([bg, t])
+
+    container.add([bg, nameT])
     return container
   }
 
   _buildSpeechBubble(x, y, text, color) {
     const container = this.add.container(x, y)
-    const hex   = typeof color === 'number' ? '#' + color.toString(16).padStart(6, '0') : color
-    const lines = text.split('\n')
-    const bh    = lines.length * 12 + 18
-    const bw    = 134
-    const bg    = this.add.graphics()
-    bg.fillStyle(0x08080f, 0.94)
-    bg.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 6)
-    bg.lineStyle(1, typeof color === 'number' ? color : parseInt(color.replace('#', '0x')), 0.7)
-    bg.strokeRoundedRect(-bw / 2, -bh / 2, bw, bh, 6)
+    const hex    = typeof color === 'number' ? '#' + color.toString(16).padStart(6, '0') : color
+    const intCol = typeof color === 'number' ? color : parseInt(color.replace('#', '0x'))
+    const lines  = text.split('\n')
+    const bh     = lines.length * 13 + 22
+    const bw     = 140
+
+    const bg = this.add.graphics()
+    // Shadow
+    bg.fillStyle(0x000000, 0.45)
+    bg.fillRoundedRect(-bw/2+3, -bh/2+3, bw, bh, 7)
+    // Main bubble
+    bg.fillStyle(0x07070f, 0.96)
+    bg.fillRoundedRect(-bw/2, -bh/2, bw, bh, 7)
+    // Top colour bar
+    bg.fillStyle(intCol, 0.75)
+    bg.fillRoundedRect(-bw/2, -bh/2, bw, 5, { tl: 7, tr: 7, bl: 0, br: 0 })
+    // Border
+    bg.lineStyle(1.5, intCol, 0.7)
+    bg.strokeRoundedRect(-bw/2, -bh/2, bw, bh, 7)
+    // Inner highlight
+    bg.lineStyle(1, 0xffffff, 0.04)
+    bg.strokeRoundedRect(-bw/2+2, -bh/2+2, bw-4, bh-4, 5)
     // Tail
-    bg.fillTriangle(-7, bh / 2, 7, bh / 2, 0, bh / 2 + 10)
-    bg.lineStyle(1, typeof color === 'number' ? color : parseInt(color.replace('#', '0x')), 0.4)
-    bg.lineBetween(-7, bh / 2, 0, bh / 2 + 10)
-    bg.lineBetween(7, bh / 2, 0, bh / 2 + 10)
+    bg.fillStyle(0x07070f, 0.96)
+    bg.fillTriangle(-8, bh/2, 8, bh/2, 0, bh/2+12)
+    bg.lineStyle(1.5, intCol, 0.5)
+    bg.lineBetween(-8, bh/2, 0, bh/2+12)
+    bg.lineBetween(8, bh/2, 0, bh/2+12)
+
     const t = this.add.text(0, 0, text, {
       fontFamily: '"Share Tech Mono", monospace',
-      fontSize: 8, color: '#aabccc', align: 'center', lineSpacing: 3,
+      fontSize: 9, fill: '#bcc8dc', align: 'center', lineSpacing: 4
     }).setOrigin(0.5)
-    container.add([bg, t])
-    return container
-  }
 
-  _buildDialogueBox(x, y, speaker, text, color) {
-    const { W }   = this
-    const hexCol  = color
-    const intCol  = parseInt(color.replace('#', '0x'))
-    const bw      = Math.min(W * 0.88, 410)
-    const bh      = 76
-    const container = this.add.container(x, y)
-    const bg = this.add.graphics()
-    bg.fillStyle(0x000000, 0.90)
-    bg.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 5)
-    bg.lineStyle(2, intCol, 0.80)
-    bg.strokeRoundedRect(-bw / 2, -bh / 2, bw, bh, 5)
-    // Left accent strip
-    bg.fillStyle(intCol, 1)
-    bg.fillRect(-bw / 2, -bh / 2, 4, bh)
-    // Top inner dark strip
-    bg.fillStyle(intCol, 0.07)
-    bg.fillRect(-bw / 2 + 4, -bh / 2, bw - 4, 4)
-    const spk = this.add.text(-bw / 2 + 14, -bh / 2 + 8, '▶ ' + speaker, {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 8, color: hexCol,
-    })
-    const txt = this.add.text(-bw / 2 + 14, -bh / 2 + 24, text, {
-      fontFamily: '"Share Tech Mono", monospace',
-      fontSize: 10, color: '#c8d8ee',
-      wordWrap: { width: bw - 28 }, lineSpacing: 3,
-    })
-    container.add([bg, spk, txt])
+    container.add([bg, t])
     return container
   }
 
   _buildPrompt() {
-    const { W, H } = this
-    const isMobile = this.sys.game.device.input.touch
-    const label    = isMobile ? '[ TAP TO CONTINUE ]' : '[ PRESS ENTER ]'
-    const container = this.add.container(W / 2, H * 0.84).setAlpha(0).setDepth(20)
-    const bw = 220
+    const { W, H }    = this
+    const isMobile    = this.sys.game.device.input.touch
+    const label       = isMobile ? '[ TAP TO CONTINUE ]' : '[ PRESS ENTER OR SPACE ]'
+    const container   = this.add.container(W/2, H*0.82).setAlpha(0).setDepth(20)
+    const bw          = Math.min(W * 0.7, 280)
+
     const bg = this.add.graphics()
-    bg.fillStyle(0x000000, 0.65)
-    bg.fillRoundedRect(-bw / 2, -18, bw, 36, 5)
-    bg.lineStyle(1, 0xffcc00, 0.45)
-    bg.strokeRoundedRect(-bw / 2, -18, bw, 36, 5)
+    bg.fillStyle(0x000000, 0.70)
+    bg.fillRoundedRect(-bw/2, -20, bw, 40, 6)
+    bg.lineStyle(1, 0xffcc00, 0.5)
+    bg.strokeRoundedRect(-bw/2, -20, bw, 40, 6)
+    // Top strip
+    bg.fillStyle(0xffcc00, 0.15)
+    bg.fillRect(-bw/2, -20, bw, 4)
+
     const t = this.add.text(0, 0, label, {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 10, color: '#ccaa44',
+      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#ccaa33'
     }).setOrigin(0.5)
+
     container.add([bg, t])
-    this._tween(container, { alpha: 0.2, duration: 850, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 600 })
+    this._tw_add(this.tweens.add({
+      targets: container, alpha: 0.15, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 500
+    }))
     return container
   }
 
-  // ── Scene decorators ─────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DECORATORS
+  // ═══════════════════════════════════════════════════════════════════════════
   _ceilingLight(x, y, width) {
     const { H } = this
-    const g = this.add.graphics()
+    const g     = this.add.graphics()
     // Tube body
-    g.fillStyle(0xd0e8ff, 0.06)
-    g.fillRect(x - width / 2, y, width, 4)
-    g.fillStyle(0xd0e8ff, 0.7)
-    g.fillRect(x - width / 2 + 2, y + 1, width - 4, 2)
-    // Light cone (triangle fan)
-    for (let i = 0; i < 28; i++) {
-      const t   = i / 28
-      const cw  = width * 0.5 * (1 + t * 1.4)
-      const cy  = y + 4 + t * H * 0.44
-      const a   = 0.055 * (1 - t) * (1 - t)
-      g.fillStyle(0xb8d0ff, a)
-      g.fillRect(x - cw / 2, cy, cw, 4)
-    }
-  }
-
-  _scanlines() {
-    const { W, H } = this
-    const g = this.add.graphics().setDepth(9000)
-    for (let y = 0; y < H; y += 3) {
-      g.fillStyle(0x000000, 0.09)
-      g.fillRect(0, y, W, 1)
-    }
-  }
-
-  _cornerVignette() {
-    const { W, H } = this
-    const g = this.add.graphics().setDepth(8800)
-    for (let i = 0; i < 12; i++) {
-      const t = i / 12
-      const a = 0.20 * (1 - t) * (1 - t)
-      const ew = W * 0.16 * (1 - t)
-      const eh = H * 0.12 * (1 - t)
-      g.fillStyle(0x000000, a)
-      g.fillRect(0, 0, ew, H)
-      g.fillRect(W - ew, 0, ew, H)
-      g.fillRect(0, 0, W, eh)
-      g.fillRect(0, H - eh, W, eh)
+    g.fillStyle(0xc8dfff, 0.05)
+    g.fillRect(x - width/2, y, width, 5)
+    // Tube bright centre
+    g.fillStyle(0xc8dfff, 0.85)
+    g.fillRect(x - width/2 + 2, y + 1, width - 4, 2.5)
+    // Tube end caps
+    g.fillStyle(0x8899bb, 0.7)
+    g.fillRect(x - width/2, y, 4, 5)
+    g.fillRect(x + width/2 - 4, y, 4, 5)
+    // Light cone
+    for (let i = 0; i < 32; i++) {
+      const t  = i / 32
+      const cw = width * 0.55 * (1 + t * 1.6)
+      const cy = y + 5 + t * H * 0.48
+      const a  = 0.06 * (1 - t) * (1 - t)
+      g.fillStyle(0xaac4ff, a)
+      g.fillRect(x - cw/2, cy, cw, 4)
     }
   }
 
   _grain() {
     const { W, H } = this
-    const g = this.add.graphics().setDepth(9100).setAlpha(0.022)
-    for (let i = 0; i < 1800; i++) {
-      g.fillStyle(0xffffff, Math.random() * 0.5 + 0.2)
+    const g        = this.add.graphics().setDepth(9100).setAlpha(0.025)
+    for (let i = 0; i < 2200; i++) {
+      g.fillStyle(0xffffff, Math.random() * 0.55 + 0.15)
       g.fillRect(Math.floor(Math.random() * W), Math.floor(Math.random() * H), 1, 1)
     }
   }
 
   _glitchBurst(count, onDone) {
     const { W, H } = this
-    let done = 0
-    const flash = () => {
-      const bg = this.add.rectangle(0, 0, W, H, 0xffffff, 0.88).setOrigin(0).setDepth(9999)
-      for (let i = 0; i < 6; i++) {
+    let done       = 0
+    const flash    = () => {
+      const bg = this.add.rectangle(0, 0, W, H, 0xffffff, 0.90).setOrigin(0).setDepth(9999)
+      // Glitch slices
+      for (let i = 0; i < 7; i++) {
         const sl = this.add.rectangle(
           Phaser.Math.Between(0, W),
           Phaser.Math.Between(0, H),
-          Phaser.Math.Between(W * 0.25, W * 0.9),
-          Phaser.Math.Between(2, 9),
-          Phaser.Utils.Array.GetRandom([0xff00ff, 0x00ffff, 0xff0000, 0x00ff00]),
-          Phaser.Math.FloatBetween(0.5, 0.95)
+          Phaser.Math.Between(W*0.20, W),
+          Phaser.Math.Between(2, 12),
+          Phaser.Utils.Array.GetRandom([0xff00ff, 0x00ffff, 0xff0000, 0x00ff00, 0xffff00]),
+          Phaser.Math.FloatBetween(0.6, 1.0)
         ).setOrigin(Phaser.Math.FloatBetween(0, 1), 0.5).setDepth(10000)
-        this._tween(sl, { alpha: 0, duration: Phaser.Math.Between(50, 130), onComplete: () => sl.destroy() })
+        this._tw_add(this.tweens.add({
+          targets: sl, alpha: 0, duration: Phaser.Math.Between(60, 150),
+          onComplete: () => sl.destroy()
+        }))
+        // Horizontal offset slice
+        const sl2 = this.add.rectangle(
+          Phaser.Math.Between(0, W * 0.3),
+          sl.y + Phaser.Math.Between(-4, 4),
+          Phaser.Math.Between(W*0.05, W*0.4), 6,
+          0xffffff, 0.2
+        ).setDepth(10001)
+        this._tw_add(this.tweens.add({
+          targets: sl2, x: sl2.x + Phaser.Math.Between(20, 80), alpha: 0,
+          duration: Phaser.Math.Between(40, 100), onComplete: () => sl2.destroy()
+        }))
       }
-      this._tween(bg, {
-        alpha: 0, duration: 100, ease: 'Linear',
+      this._tw_add(this.tweens.add({
+        targets: bg, alpha: 0, duration: 100, ease: 'Linear',
         onComplete: () => {
-          bg.destroy(); done++
-          if (done < count) this._timer(Phaser.Math.Between(40, 130), flash)
+          bg.destroy()
+          done++
+          if (done < count) this._timer(Phaser.Math.Between(50, 140), flash)
           else onDone?.()
         }
-      })
+      }))
     }
     flash()
   }
 
-  _glitchLines(count) {
-    const { W, H } = this
-    for (let i = 0; i < count; i++) {
-      this._timer(i * 160, () => {
-        const sl = this.add.rectangle(
-          Phaser.Math.Between(0, W * 0.6),
-          Phaser.Math.Between(H * 0.08, H * 0.92),
-          Phaser.Math.Between(W * 0.15, W * 0.75),
-          Phaser.Math.Between(1, 5),
-          Phaser.Utils.Array.GetRandom([0xff00ff, 0x00ffff, 0xffffff, 0xff4444]),
-          Phaser.Math.FloatBetween(0.05, 0.25)
-        ).setDepth(9500)
-        this._tween(sl, { alpha: 0, duration: Phaser.Math.Between(70, 200), onComplete: () => sl.destroy() })
-      })
-    }
-  }
-
-  _monitorFlicker() {
-    if (!this.scene.isActive('PreludeScene')) return
-    const { W, H } = this
-    const ln = this.add.rectangle(
-      Phaser.Math.Between(0, W), Phaser.Math.Between(0, H * 0.65),
-      Phaser.Math.Between(30, 180), 2, 0x4488ff, 0.07
-    ).setDepth(6)
-    this._tween(ln, { alpha: 0, duration: Phaser.Math.Between(35, 110), onComplete: () => ln.destroy() })
-    this._timer(Phaser.Math.Between(100, 380), () => this._monitorFlicker())
-  }
-
-  _spawnFloat(x, y, text, color) {
-    const t = this._txt(x, y, text, 'mono', this._fs(2, 6, 10), color)
-      .setOrigin(0.5).setAlpha(0).setDepth(12)
-    this._tween(t, {
-      alpha: 1, y: y - 8, duration: 600, ease: 'Power1',  // Slower, less flying
+  _spawnFloat(x, y, text, color, size = 10) {
+    const t = this.add.text(x, y, text, {
+      fontFamily: '"Share Tech Mono", monospace',
+      fontSize: size, fill: color
+    }).setOrigin(0.5).setAlpha(0).setDepth(14)
+    this._tw_add(this.tweens.add({
+      targets: t, alpha: 1, y: y - 6, duration: 550, ease: 'Power2',
       onComplete: () => {
-        this._tween(t, { alpha: 0, y: y - 20, duration: 800, delay: 800, ease: 'Power1', onComplete: () => t.destroy() })  // Longer delay
+        this._tw_add(this.tweens.add({
+          targets: t, alpha: 0, y: y - 22, duration: 900, delay: 1000, ease: 'Power1',
+          onComplete: () => t.destroy()
+        }))
       }
-    })
+    }))
   }
 
   _blackOut(dur, cb) {
     const o = this.add.rectangle(0, 0, this.W, this.H, 0x000000, 0).setOrigin(0).setDepth(9990)
-    this._tween(o, { fillAlpha: 1, duration: dur, ease: 'Linear', onComplete: cb })
+    this._tw_add(this.tweens.add({ targets: o, fillAlpha: 1, duration: dur, ease: 'Linear', onComplete: cb }))
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UTILITIES
+  // ═══════════════════════════════════════════════════════════════════════════
   _clearScene() {
-    this.children.list.slice().forEach(c => c.destroy())
-    this._tw.forEach(t => t?.stop?.())
+    this.children.list.slice().forEach(c => { try { c.destroy() } catch(e){} })
+    this._tw.forEach(t => { try { t?.stop?.() } catch(e){} })
     this._tw = []
-    this._tmr.forEach(t => t?.remove?.())
+    this._tmr.forEach(t => { try { t?.remove?.() } catch(e){} })
     this._tmr = []
   }
 
-  _txt(x, y, str, font = 'mono', size = 10, fill = '#ffffff') {
+  _label(x, y, str, size = 10, fill = '#ffffff') {
     return this.add.text(x, y, str, {
-      fontFamily: font === 'pixel'
-        ? '"Press Start 2P", monospace'
-        : '"Share Tech Mono", "Courier New", monospace',
-      fontSize: size,
-      fill,
-      resolution: 2,
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: size, fill, resolution: 2,
     })
   }
 
-  _ellipse(x, y, w, h, color, alpha) {
-    return this.add.ellipse(x, y, w, h, color, alpha)
-  }
-
-  _tween(targets, cfg) {
-    const t = this.tweens.add({ targets, ...cfg })
-    this._tw.push(t)
-    return t
+  _tw_add(tw) {
+    this._tw.push(tw)
+    return tw
   }
 
   _timer(delay, cb) {
@@ -1065,7 +2213,7 @@ export class PreludeScene extends Phaser.Scene {
   }
 
   shutdown() {
-    this._tw.forEach(t => t?.stop?.())
-    this._tmr.forEach(t => t?.remove?.())
+    this._tw.forEach(t => { try { t?.stop?.() } catch(e){} })
+    this._tmr.forEach(t => { try { t?.remove?.() } catch(e){} })
   }
 }

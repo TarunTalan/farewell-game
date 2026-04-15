@@ -30,11 +30,10 @@ export class BootScene extends Phaser.Scene {
   }
 
   _loadSeniorImages() {
+    const placeholderPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEUAAACnej3aAAAAAXRSTlMAQObYZgAAAApJREFUCNdjYAAAAAIAAeIhvDMAAAAASUVORK5CYII='
     SENIORS.forEach(senior => {
-      if (senior.image) {
-        const path = `${import.meta.env.BASE_URL}${senior.image}`
-        this.load.image(senior.id, path)
-      }
+      // Use placeholder for now since actual senior images aren't provided
+      this.load.image(senior.id, placeholderPng)
     })
   }
 
