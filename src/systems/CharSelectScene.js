@@ -124,7 +124,7 @@ export class CharSelectScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10).setShadow(0, 2, '#ff4400', 14, true)
 
     this.add.text(W / 2, titleY + titleSize + 6, 'SWIPE  ·  TAP  ·  CONQUER', {
-      fontFamily:    '"Share Tech Mono", monospace',
+      fontFamily:    '"Nunito", sans-serif',
       fontSize:      this._fs(3, 10, 15),
       fill:          '#b07040',
       letterSpacing: 5,
@@ -318,7 +318,7 @@ export class CharSelectScene extends Phaser.Scene {
       -CARD_W / 2 + 10 + badgeW / 2,
       badgeY + badgeH / 2,
       String(ri + 1).padStart(2, '0'),
-      { fontFamily: '"Share Tech Mono", monospace', fontSize: this._fs(3.5, 11, 16), fill: ac.text, fontStyle: 'bold' }
+      { fontFamily: '"Nunito", sans-serif', fontSize: this._fs(3.5, 11, 16), fill: ac.text, fontStyle: 'bold' }
     ).setOrigin(0.5)
 
     // ── Avatar
@@ -391,7 +391,7 @@ export class CharSelectScene extends Phaser.Scene {
     const titleY2   = nameY + nameSize + 5
     const titleSize = this._fs(3, 10, 14)
     const titleTxt  = this.add.text(0, titleY2, s.title.toUpperCase(), {
-      fontFamily:    '"Share Tech Mono", monospace',
+      fontFamily:    '"Nunito", sans-serif',
       fontSize:      titleSize,
       fill:          ac.text,
       align:         'center',
@@ -411,7 +411,7 @@ export class CharSelectScene extends Phaser.Scene {
     // ── Bio
     const bioY   = divY + 12
     const bioTxt = this.add.text(0, bioY, s.bio || s.desc || '', {
-      fontFamily:  '"Share Tech Mono", monospace',
+      fontFamily:  '"Nunito", sans-serif',
       fontSize:    this._fs(2.8, 9, 13),
       fill:        '#c8a882',
       align:       'center',
@@ -431,7 +431,7 @@ export class CharSelectScene extends Phaser.Scene {
     const statEls = []
     statDefs.forEach(({ label, val, ox }) => {
       const lbl = this.add.text(ox, statsBaseY, label, {
-        fontFamily: '"Share Tech Mono", monospace',
+        fontFamily: '"Nunito", sans-serif',
         fontSize:   this._fs(2.5, 8, 11),
         fill:       '#7a6040',
         fontStyle:  'bold',
@@ -449,7 +449,7 @@ export class CharSelectScene extends Phaser.Scene {
       fill.fillRoundedRect(ox - barW / 2, by, fillW, barH, barH / 2)
 
       const valTxt = this.add.text(ox, by + barH + 3, String(val), {
-        fontFamily: '"Share Tech Mono", monospace',
+        fontFamily: '"Nunito", sans-serif',
         fontSize:   this._fs(2.3, 7, 10),
         fill:       ac.text,
         align:      'center',
@@ -460,7 +460,7 @@ export class CharSelectScene extends Phaser.Scene {
 
     // ── Tap hint (only visible on active card)
     const tapHint = this.add.text(0, CARD_H / 2 - 14, 'TAP TO SELECT', {
-      fontFamily:    '"Share Tech Mono", monospace',
+      fontFamily:    '"Nunito", sans-serif',
       fontSize:      this._fs(2.4, 8, 11),
       fill:          ac.text,
       align:         'center',
@@ -504,7 +504,7 @@ export class CharSelectScene extends Phaser.Scene {
 
     // Subtitle
     this._infoSub = this.add.text(W / 2, INFO_Y + this._fs(6.5, 22, 36) + 6, '', {
-      fontFamily:    '"Share Tech Mono", monospace',
+      fontFamily:    '"Nunito", sans-serif',
       fontSize:      this._fs(3.2, 11, 16),
       fill:          '#ff6600',
       align:         'center',
@@ -672,8 +672,13 @@ export class CharSelectScene extends Phaser.Scene {
 
   _repositionCards() {
     const { W, CARD_STEP } = this
+    const centerSlot = CLONES + this._index
+    const halfN      = N / 2
+
     this._cardSlots.forEach(({ container }, si) => {
-      const offset = si - (CLONES + this._index)
+      let offset = si - centerSlot
+      if (offset > halfN) offset -= N
+      if (offset < -halfN) offset += N
       container.x = W / 2 + offset * CARD_STEP
     })
   }

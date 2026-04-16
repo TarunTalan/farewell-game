@@ -9,8 +9,8 @@
 //   • On "game start" trigger, Three.js canvas is removed and Phaser resumes.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import Phaser from 'phaser'
 import { DialogueSystem } from '../systems/DialogueSystem.js'
-import { CharacterSelect } from '../systems/CharacterSelect.js'
 import { gameState } from '../data/GameState.js'
 
 // ── Three.js dynamic import helper ───────────────────────────────────────────
@@ -131,11 +131,12 @@ export class LabScene extends Phaser.Scene {
     this._running = false
     if (this._renderer) {
       this._renderer.dispose()
-      this._renderer.domElement.remove()
+      this._renderer.domElement?.remove()
     }
     if (this._dialogueEl) this._dialogueEl.remove()
     if (this._hintEl) this._hintEl.remove()
     document.removeEventListener('keydown', this._keyHandler)
+    document.removeEventListener('keyup', this._keyHandler)
   }
 
   // ── Three.js renderer setup ───────────────────────────────────────────────
@@ -936,7 +937,7 @@ export class LabScene extends Phaser.Scene {
       borderRadius: '8px',
       padding: '18px 24px',
       color: '#e0e8ff',
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: '11px',
       lineHeight: '1.8',
       zIndex: '20',
@@ -1011,7 +1012,7 @@ export class LabScene extends Phaser.Scene {
       left: '50%',
       transform: 'translateX(-50%)',
       color: '#4060a0',
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: '9px',
       zIndex: '20',
       pointerEvents: 'none'
@@ -1107,13 +1108,7 @@ export class LabScene extends Phaser.Scene {
 
         const dialogueSys = new DialogueSystem(gameState)
         dialogueSys.play('opening', () => {
-          const charSelect = new CharacterSelect((selectedSenior) => {
-            gameState.selectedSenior = selectedSenior
-            dialogueSys.play('selected', () => {
-              this.scene.start('GameScene')
-            })
-          })
-          charSelect.show()
+          this.scene.start('CharSelectScene')
         })
       })
     })
@@ -1445,7 +1440,7 @@ export class LabScene extends Phaser.Scene {
     ctx.roundRect(4, 4, 248, 56, 6)
     ctx.fill()
 
-    ctx.font = 'bold 20px "Press Start 2P", monospace'
+    ctx.font = 'bold 20px "Nunito", sans-serif'
     ctx.fillStyle = color
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'

@@ -1,9 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// PreludeScene.js  ·  Cinematic Story Intro — COMPLETE REWRITE
-// Pokemon-style dialogue · 3D-ish pixel characters · Smooth animations
-// Mobile-first · Portrait placeholders · Full effects
-// ─────────────────────────────────────────────────────────────────────────────
-
+import Phaser from 'phaser'
 import { gameState } from '../data/GameState.js'
 
 // ─── Member data ──────────────────────────────────────────────────────────────
@@ -44,11 +39,11 @@ const MEMBERS = [
 
 // ─── Dialogue data ─────────────────────────────────────────────────────────
 const PHASE3_DIALOGUE = [
-  { speaker: 'UNKNOWN CALLER', text: 'Hum tere lab ke 3 bande le gaye hain...', portrait: null, color: '#ef4444', side: 'left'  },
-  { speaker: 'UNKNOWN CALLER', text: 'Ransom chahiye.\nSI LAB ke BEST bande bhejo... warna...', portrait: null, color: '#ef4444', side: 'left'  },
-  { speaker: 'DIVYANSH',       text: 'Best bande...?\nTum jaante nahi kya maang rahe ho.', portrait: 0, color: '#a855f7', side: 'right' },
+  { speaker: 'UNKNOWN CALLER', text: 'SI lab ke 3 bande hamare paas hai...', portrait: null, color: '#ef4444', side: 'left'  },
+  { speaker: 'UNKNOWN CALLER', text: 'Ransom chahiye.\n Shivansh sir ke Claude account ke credentials bhejo... warna...', portrait: null, color: '#ef4444', side: 'left'  },
+  { speaker: 'DIVYANSH',       text: 'Claude ke creds?\nTum jaante nahi kya maang rahe ho.', portrait: 0, color: '#a855f7', side: 'right' },
   { speaker: 'DIVYANSH',       text: 'Ab sirf ek hi option hai...', portrait: 0, color: '#a855f7', side: 'right' },
-  { speaker: 'DIVYANSH',       text: 'Unhe bulana padega.\n"THEY" ko.', portrait: 0, color: '#f59e0b', side: 'right' },
+  { speaker: 'DIVYANSH',       text: 'Unhe bulana hi padega.....\n "UNHE" ', portrait: 0, color: '#f59e0b', side: 'right' },
 ]
 
 export class PreludeScene extends Phaser.Scene {
@@ -70,6 +65,11 @@ export class PreludeScene extends Phaser.Scene {
     this._buildAllTextures()
     this.cameras.main.fadeIn(1400, 0, 0, 0)
     this._phase1_labScene()
+  }
+
+  _replaceGeneratedTexture(g, key, width, height) {
+    if (this.textures.exists(key)) this.textures.remove(key)
+    g.generateTexture(key, width, height)
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -290,7 +290,7 @@ export class PreludeScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 0.07)
     g.fillEllipse(23, CH-118, 10, 5)
 
-    g.generateTexture(key, CW, CH)
+    this._replaceGeneratedTexture(g, key, CW, CH)
     g.destroy()
   }
 
@@ -361,7 +361,7 @@ export class PreludeScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 0.025)
     g.fillTriangle(5, 5, 22, 5, 5, 25)
 
-    g.generateTexture('monitor', MW, MH)
+    this._replaceGeneratedTexture(g, 'monitor', MW, MH)
     g.destroy()
   }
 
@@ -392,7 +392,7 @@ export class PreludeScene extends Phaser.Scene {
     g.fillRect(8, 8, 2, DH-8)
     g.fillRect(DW-13, 8, 2, DH-8)
 
-    g.generateTexture('desk', DW, DH)
+    this._replaceGeneratedTexture(g, 'desk', DW, DH)
     g.destroy()
   }
 
@@ -453,7 +453,7 @@ export class PreludeScene extends Phaser.Scene {
       g.fillStyle(0x1a1a30)
     })
 
-    g.generateTexture('chair', CW, CH)
+    this._replaceGeneratedTexture(g, 'chair', CW, CH)
     g.destroy()
   }
 
@@ -537,7 +537,7 @@ export class PreludeScene extends Phaser.Scene {
     g.fillStyle(0x222238)
     g.fillRoundedRect(17, PH-8, 18, 3, 1)
 
-    g.generateTexture('phone', PW, PH)
+    this._replaceGeneratedTexture(g, 'phone', PW, PH)
     g.destroy()
   }
 
@@ -545,7 +545,7 @@ export class PreludeScene extends Phaser.Scene {
     const g = this.add.graphics()
     g.fillStyle(0xffffff, 1)
     g.fillCircle(4, 4, 4)
-    g.generateTexture('particle', 8, 8)
+    this._replaceGeneratedTexture(g, 'particle', 8, 8)
     g.destroy()
   }
 
@@ -588,7 +588,7 @@ export class PreludeScene extends Phaser.Scene {
     g.fillRect(0, TH - 12, TW, 12)
     g.fillStyle(0x1a1a3a, 0.4)
     g.fillRect(0, TH - 12, TW, 2)
-    g.generateTexture('lab_wall', TW, TH)
+    this._replaceGeneratedTexture(g, 'lab_wall', TW, TH)
     g.destroy()
   }
 
@@ -615,7 +615,7 @@ export class PreludeScene extends Phaser.Scene {
     // Floor reflection
     g.fillStyle(0x1a1a44, 0.08)
     g.fillRect(0, 0, TW, 6)
-    g.generateTexture('lab_floor', TW, TH)
+    this._replaceGeneratedTexture(g, 'lab_floor', TW, TH)
     g.destroy()
   }
 
@@ -850,7 +850,7 @@ export class PreludeScene extends Phaser.Scene {
 
           // Big glowing ?
           const qBg = this.add.text(x, charY, '?', {
-            fontFamily: '"Press Start 2P", monospace',
+            fontFamily: '"Nunito", sans-serif',
             fontSize: this._fs(10, 24, 52), fill: ms.accent,
             stroke: '#000000', strokeThickness: 6,
           }).setOrigin(0.5).setAlpha(0).setDepth(7)
@@ -948,7 +948,7 @@ export class PreludeScene extends Phaser.Scene {
     const now = new Date()
     const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0')
     this.add.text(14, 10, timeStr, {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 11, fill: '#ffffff'
+      fontFamily: '"Nunito", sans-serif', fontSize: 11, fill: '#ffffff'
     }).setDepth(4)
     // Signal bars (right side)
     statusG.fillStyle(0xffffff, 0.8)
@@ -1012,7 +1012,7 @@ export class PreludeScene extends Phaser.Scene {
 
     // ── 7. INCOMING CALL LABEL (top, under notch) ─────────────────────────
     const callLabel = this.add.text(W / 2, 48, 'Incoming Call', {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: this._fs(3, 11, 18), fill: '#9999bb'
     }).setOrigin(0.5).setAlpha(0).setDepth(8)
     this._tw_add(this.tweens.add({ targets: callLabel, alpha: 1, duration: 400, delay: 200 }))
@@ -1060,7 +1060,7 @@ export class PreludeScene extends Phaser.Scene {
     avatarG.fillEllipse(W / 2, avatarY + 18, 44, 28)
     // ? over face
     const qMark = this.add.text(W / 2, avatarY - 10, '?', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: this._fs(6, 18, 36), fill: '#cc2222',
       stroke: '#000000', strokeThickness: 4
     }).setOrigin(0.5).setAlpha(0).setDepth(9)
@@ -1076,13 +1076,13 @@ export class PreludeScene extends Phaser.Scene {
 
     // ── 9. CALLER ID TEXT ─────────────────────────────────────────────────
     const callerName = this.add.text(W / 2, avatarY + 68, 'UNKNOWN', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: this._fs(5, 16, 28), fill: '#ffffff',
       stroke: '#000000', strokeThickness: 3
     }).setOrigin(0.5).setAlpha(0).setDepth(8)
 
     const callerSub = this.add.text(W / 2, avatarY + 98, 'No Caller ID', {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: this._fs(2.5, 9, 14), fill: '#886688'
     }).setOrigin(0.5).setAlpha(0).setDepth(8)
 
@@ -1090,7 +1090,7 @@ export class PreludeScene extends Phaser.Scene {
 
     // ── 10. CALL TIMER (starts after answer — placeholder) ─────────────────
     const callTimerTxt = this.add.text(W / 2, avatarY + 118, '', {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: this._fs(2, 8, 12), fill: '#446644'
     }).setOrigin(0.5).setDepth(8)
 
@@ -1122,10 +1122,10 @@ export class PreludeScene extends Phaser.Scene {
     btnG.arc(W*0.75+6, btnY, 10, -1.0, 1.0)
 
     const muteLabel = this.add.text(W * 0.25, btnY + 36, 'mute', {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#44445a'
+      fontFamily: '"Nunito", sans-serif', fontSize: 9, fill: '#44445a'
     }).setOrigin(0.5).setAlpha(0).setDepth(9)
     const speakerLabel = this.add.text(W * 0.75, btnY + 36, 'speaker', {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#44445a'
+      fontFamily: '"Nunito", sans-serif', fontSize: 9, fill: '#44445a'
     }).setOrigin(0.5).setAlpha(0).setDepth(9)
 
     this._tw_add(this.tweens.add({ targets: [btnG, muteLabel, speakerLabel], alpha: 1, duration: 400, delay: 900 }))
@@ -1156,7 +1156,7 @@ export class PreludeScene extends Phaser.Scene {
 
     // Slide hint label (arrows + text)
     const slideHintText = this.add.text(sliderX + 20, sliderY, '  slide to answer  ▶▶', {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: this._fs(2, 8, 12), fill: '#22aa44',
       alpha: 0.6
     }).setOrigin(0.5).setDepth(11).setAlpha(0)
@@ -1221,7 +1221,7 @@ export class PreludeScene extends Phaser.Scene {
     declineG.lineBetween(trackR_+44, declineY-8, trackR_+28, declineY+8)
 
     const declineLabel = this.add.text(trackR_ + 36, declineY + 38, 'decline', {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#441111'
+      fontFamily: '"Nunito", sans-serif', fontSize: 9, fill: '#441111'
     }).setOrigin(0.5).setDepth(11).setAlpha(0)
 
     // Reveal slider
@@ -1460,7 +1460,7 @@ export class PreludeScene extends Phaser.Scene {
     endBtnG.fillRoundedRect(W/2-8, endBtnY-7, 8, 8, 2)
     endBtnG.fillRoundedRect(W/2+1, endBtnY-7, 8, 8, 2)
     const endLabel = this.add.text(W/2, endBtnY + 44, 'end call', {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#441111'
+      fontFamily: '"Nunito", sans-serif', fontSize: 9, fill: '#441111'
     }).setOrigin(0.5).setDepth(12).setAlpha(0)
     this._tw_add(this.tweens.add({ targets: [endBtnG, endLabel], alpha: 1, duration: 400, delay: 600 }))
 
@@ -1530,7 +1530,7 @@ export class PreludeScene extends Phaser.Scene {
 
     // Call ended text
     const endedTxt = this.add.text(W/2, H*0.50, 'Call Ended', {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: this._fs(3, 11, 18), fill: '#883333'
     }).setOrigin(0.5).setAlpha(0).setDepth(20)
     this._tw_add(this.tweens.add({ targets: endedTxt, alpha: 1, duration: 400 }))
@@ -1633,7 +1633,7 @@ export class PreludeScene extends Phaser.Scene {
     portraitPanel.lineBetween(portraitX+4, portraitY+portraitSize-4, portraitX+portraitSize-4, portraitY+4)
     // "PHOTO" placeholder text
     const portraitPlaceholder = this.add.text(portraitX + portraitSize/2, portraitY + portraitSize/2, 'PHOTO', {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 7, fill: '#222244'
+      fontFamily: '"Nunito", sans-serif', fontSize: 7, fill: '#222244'
     }).setOrigin(0.5)
 
     // Colour accent strip on left
@@ -1646,7 +1646,7 @@ export class PreludeScene extends Phaser.Scene {
     const speakerText  = this.add.text(
       portraitX + portraitSize + 20,
       portraitY + 2, 'SPEAKER',
-      { fontFamily: '"Share Tech Mono", monospace', fontSize: isMobile ? 7 : 9, fill: '#aaaacc' }
+      { fontFamily: '"Nunito", sans-serif', fontSize: isMobile ? 7 : 9, fill: '#aaaacc' }
     )
 
     // Dialogue text
@@ -1654,7 +1654,7 @@ export class PreludeScene extends Phaser.Scene {
     const textY = portraitY + (isMobile ? 20 : 24)
     const textW = panelW - textX - 16
     const dialogueText = this.add.text(textX, textY, '', {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: isMobile ? 9 : 11,
       fill: '#d8ddf0',
       wordWrap: { width: textW },
@@ -1663,7 +1663,7 @@ export class PreludeScene extends Phaser.Scene {
 
     // Advance indicator (blinking ▼)
     const advanceArrow = this.add.text(panelW - 20, panelH - 20, '▼', {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 10, fill: '#5555aa'
+      fontFamily: '"Nunito", sans-serif', fontSize: 10, fill: '#5555aa'
     }).setAlpha(0)
     this._tw_add(this.tweens.add({
       targets: advanceArrow, alpha: 0.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
@@ -1687,6 +1687,13 @@ export class PreludeScene extends Phaser.Scene {
       accentStrip, speakerText, dialogueText, advanceArrow,
       portraitX, portraitY, portraitSize, isMobile
     } = refs
+
+    // Stop any previous typing event tied to this dialogue panel before reusing it.
+    const oldTypeInterval = container.getData('typeInterval')
+    if (oldTypeInterval) {
+      oldTypeInterval.remove()
+      container.setData('typeInterval', null)
+    }
 
     // Remove old portrait char if any
     const oldPortrait = container.getData('portraitChar')
@@ -1718,7 +1725,7 @@ export class PreludeScene extends Phaser.Scene {
       const unk = this.add.text(
         portraitX + portraitSize / 2, portraitY + portraitSize / 2, '?',
         {
-          fontFamily: '"Press Start 2P", monospace',
+          fontFamily: '"Nunito", sans-serif',
           fontSize: isMobile ? 18 : 22, fill: '#cc2222',
           stroke: '#000000', strokeThickness: 4
         }
@@ -1737,15 +1744,23 @@ export class PreludeScene extends Phaser.Scene {
       delay: 40,
       repeat: fullText.length - 1,
       callback: () => {
+        // Scene transitions can destroy the text/canvas while the timer is still alive.
+        if (!container?.active || !dialogueText?.active || !dialogueText?.scene) {
+          typeInterval.remove()
+          container?.setData?.('typeInterval', null)
+          return
+        }
         charIdx++
         dialogueText.setText(fullText.substring(0, charIdx))
         if (charIdx >= fullText.length) {
+          container.setData('typeInterval', null)
           // Show advance arrow
           this._tw_add(this.tweens.add({ targets: advanceArrow, alpha: 1, duration: 200 }))
           onDone?.()
         }
       }
     })
+    container.setData('typeInterval', typeInterval)
     this._tmr.push(typeInterval)
   }
 
@@ -1776,15 +1791,15 @@ export class PreludeScene extends Phaser.Scene {
     const msg   = 'WHO ARE\n"THEY" ???'
 
     const whoR  = this.add.text(W/2 + 5, H*0.40, msg, {
-      fontFamily: '"Press Start 2P", monospace', fontSize: sz, fill: '#ff0033',
+      fontFamily: '"Nunito", sans-serif', fontSize: sz, fill: '#ff0033',
       ...style
     }).setOrigin(0.5).setAlpha(0).setDepth(8)
     const whoB  = this.add.text(W/2 - 5, H*0.40, msg, {
-      fontFamily: '"Press Start 2P", monospace', fontSize: sz, fill: '#0033ff',
+      fontFamily: '"Nunito", sans-serif', fontSize: sz, fill: '#0033ff',
       ...style
     }).setOrigin(0.5).setAlpha(0).setDepth(8)
     const who   = this.add.text(W/2, H*0.40, msg, {
-      fontFamily: '"Press Start 2P", monospace', fontSize: sz, fill: '#ffffff',
+      fontFamily: '"Nunito", sans-serif', fontSize: sz, fill: '#ffffff',
       ...style
     }).setOrigin(0.5).setAlpha(0).setDepth(10)
 
@@ -1875,7 +1890,7 @@ export class PreludeScene extends Phaser.Scene {
       const size  = this._fs(sz, sz * 2.4, sz * 5.2)
       const yBase = H * 0.44
       const t     = this.add.text(W/2, yBase + 16, text, {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Nunito", sans-serif',
         fontSize: size, fill: col, align: 'center',
         stroke: '#000000', strokeThickness: 3, lineSpacing: 8,
       }).setOrigin(0.5).setAlpha(0).setDepth(10)
@@ -1937,13 +1952,13 @@ export class PreludeScene extends Phaser.Scene {
 
       // "T H E Y" — layered shadow + main
       const shadowTxt = this.add.text(W/2 + 5, H*0.39 + 5, 'T H E Y', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Nunito", sans-serif',
         fontSize: this._fs(11.5, 32, 96), fill: '#ff5500',
         stroke: '#000000', strokeThickness: 12
       }).setOrigin(0.5).setAlpha(0).setDepth(4)
 
       const mainTxt = this.add.text(W/2, H*0.39, 'T H E Y', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Nunito", sans-serif',
         fontSize: this._fs(11.5, 32, 96), fill: '#ffdd00',
         stroke: '#000000', strokeThickness: 8
       }).setOrigin(0.5).setAlpha(0).setDepth(5)
@@ -2004,7 +2019,7 @@ export class PreludeScene extends Phaser.Scene {
     bg.strokeRoundedRect(-tw/2, -10, tw, 20, 4)
 
     const nameT = this.add.text(0, 2, name, {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 8, fill: '#ccccdd'
+      fontFamily: '"Nunito", sans-serif', fontSize: 8, fill: '#ccccdd'
     }).setOrigin(0.5)
 
     container.add([bg, nameT])
@@ -2043,7 +2058,7 @@ export class PreludeScene extends Phaser.Scene {
     bg.lineBetween(8, bh/2, 0, bh/2+12)
 
     const t = this.add.text(0, 0, text, {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: 9, fill: '#bcc8dc', align: 'center', lineSpacing: 4
     }).setOrigin(0.5)
 
@@ -2068,7 +2083,7 @@ export class PreludeScene extends Phaser.Scene {
     bg.fillRect(-bw/2, -20, bw, 4)
 
     const t = this.add.text(0, 0, label, {
-      fontFamily: '"Share Tech Mono", monospace', fontSize: 9, fill: '#ccaa33'
+      fontFamily: '"Nunito", sans-serif', fontSize: 9, fill: '#ccaa33'
     }).setOrigin(0.5)
 
     container.add([bg, t])
@@ -2160,7 +2175,7 @@ export class PreludeScene extends Phaser.Scene {
 
   _spawnFloat(x, y, text, color, size = 10) {
     const t = this.add.text(x, y, text, {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: size, fill: color
     }).setOrigin(0.5).setAlpha(0).setDepth(14)
     this._tw_add(this.tweens.add({
@@ -2183,16 +2198,16 @@ export class PreludeScene extends Phaser.Scene {
   // UTILITIES
   // ═══════════════════════════════════════════════════════════════════════════
   _clearScene() {
-    this.children.list.slice().forEach(c => { try { c.destroy() } catch(e){} })
     this._tw.forEach(t => { try { t?.stop?.() } catch(e){} })
     this._tw = []
     this._tmr.forEach(t => { try { t?.remove?.() } catch(e){} })
     this._tmr = []
+    this.children.list.slice().forEach(c => { try { c.destroy() } catch(e){} })
   }
 
   _label(x, y, str, size = 10, fill = '#ffffff') {
     return this.add.text(x, y, str, {
-      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: size, fill, resolution: 2,
     })
   }

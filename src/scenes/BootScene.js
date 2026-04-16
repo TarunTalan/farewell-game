@@ -101,7 +101,7 @@ export class BootScene extends Phaser.Scene {
 
     // ── HUD corners ───────────────────────────────────────────────────────
     const hudS = {
-      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: Math.max(7, Math.min(W * 0.02, 9)), fill: '#1a1a2e'
     }
     this.add.text(Math.max(12, W * 0.04), Math.max(12, H * 0.03), 'SI-LAB', hudS)
@@ -165,7 +165,7 @@ export class BootScene extends Phaser.Scene {
 
     lines.forEach((line, i) => {
       const t = this.add.text(termX, termStartY + i * lineH, '', {
-        fontFamily: '"Share Tech Mono", "Courier New", monospace',
+        fontFamily: '"Nunito", sans-serif',
         fontSize, fill: line.col, resolution: 2,
       }).setAlpha(0).setOrigin(0)
 
@@ -217,7 +217,7 @@ export class BootScene extends Phaser.Scene {
     const dot      = this.add.rectangle(pad + 2, barCenterY, 2, barH + 4, 0xffffff, 0.85).setOrigin(0, 0.5)
 
     const pct = this.add.text(pad, barCenterY + 14, '0%', {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: Math.max(8, Math.min(W * 0.022, 10)), fill: '#7755ff',
     }).setOrigin(0, 0)
 
@@ -238,7 +238,7 @@ export class BootScene extends Phaser.Scene {
     })
 
     this.add.text(pad, barCenterY + 26, 'SI-LAB  //  BOOT SEQUENCE', {
-      fontFamily: '"Share Tech Mono", monospace',
+      fontFamily: '"Nunito", sans-serif',
       fontSize: Math.max(6, Math.min(W * 0.016, 8)), fill: '#1a0e33',
     }).setOrigin(0, 0)
 
