@@ -1633,7 +1633,7 @@ export class PreludeScene extends Phaser.Scene {
     portraitPanel.lineBetween(portraitX+4, portraitY+portraitSize-4, portraitX+portraitSize-4, portraitY+4)
     // "PHOTO" placeholder text
     const portraitPlaceholder = this.add.text(portraitX + portraitSize/2, portraitY + portraitSize/2, 'PHOTO', {
-      fontFamily: '"Nunito", sans-serif', fontSize: 7, fill: '#222244'
+      fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 8, fill: '#222244'
     }).setOrigin(0.5)
 
     // Colour accent strip on left
@@ -1646,7 +1646,7 @@ export class PreludeScene extends Phaser.Scene {
     const speakerText  = this.add.text(
       portraitX + portraitSize + 20,
       portraitY + 2, 'SPEAKER',
-      { fontFamily: '"Nunito", sans-serif', fontSize: isMobile ? 7 : 9, fill: '#aaaacc' }
+      { fontFamily: 'Impact, Arial Black, sans-serif', fontSize: isMobile ? 9 : 12, fill: '#aaaacc' }
     )
 
     // Dialogue text
@@ -1654,16 +1654,16 @@ export class PreludeScene extends Phaser.Scene {
     const textY = portraitY + (isMobile ? 20 : 24)
     const textW = panelW - textX - 16
     const dialogueText = this.add.text(textX, textY, '', {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize: isMobile ? 9 : 11,
+      fontFamily: 'Impact, Arial Black, sans-serif',
+      fontSize: isMobile ? 12 : 16,
       fill: '#d8ddf0',
       wordWrap: { width: textW },
-      lineSpacing: isMobile ? 4 : 6,
+      lineSpacing: isMobile ? 6 : 8,
     })
 
     // Advance indicator (blinking ▼)
     const advanceArrow = this.add.text(panelW - 20, panelH - 20, '▼', {
-      fontFamily: '"Nunito", sans-serif', fontSize: 10, fill: '#5555aa'
+      fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 12, fill: '#5555aa'
     }).setAlpha(0)
     this._tw_add(this.tweens.add({
       targets: advanceArrow, alpha: 0.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
@@ -1725,8 +1725,8 @@ export class PreludeScene extends Phaser.Scene {
       const unk = this.add.text(
         portraitX + portraitSize / 2, portraitY + portraitSize / 2, '?',
         {
-          fontFamily: '"Nunito", sans-serif',
-          fontSize: isMobile ? 18 : 22, fill: '#cc2222',
+          fontFamily: 'Impact, Arial Black, sans-serif',
+          fontSize: isMobile ? 20 : 26, fill: '#cc2222',
           stroke: '#000000', strokeThickness: 4
         }
       ).setOrigin(0.5).setDepth(55)
@@ -1741,7 +1741,7 @@ export class PreludeScene extends Phaser.Scene {
     const fullText = lineData.text
     let charIdx    = 0
     const typeInterval = this.time.addEvent({
-      delay: 40,
+      delay: 25,
       repeat: fullText.length - 1,
       callback: () => {
         // Scene transitions can destroy the text/canvas while the timer is still alive.

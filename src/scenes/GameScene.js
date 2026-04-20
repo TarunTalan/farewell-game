@@ -1,277 +1,349 @@
 import Phaser from 'phaser'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GameScene.js — Fixed & cleaned up
+// GameScene.js — Mobile-first | Landscape | 3 Phases + Boss | Max Graphics
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Persistent cross-level state ──────────────────────────────────────────────
 const GS = {
   health: 100,
   maxHealth: 100,
   score: 0,
+  cgpa: 10.0,
   year: 0,
+  totalKills: 0,
   powerupType: null,
   powerupTimer: 0,
-  cgpa: 10.0,
   hasResumeBoost: false,
-  totalEnemiesKilled: 0,
 }
 
-const W            = 480
-const H            = 270
-const GROUND_Y     = H - 48
-const LEVEL_WIDTH  = 3200
-const PLAYER_SPEED = 180
-const JUMP_VEL     = -400
-const DMG_COOLDOWN = 1000
+// ── Layout constants (scaled at runtime in create) ────────────────────────────
+const BASE_W        = 480
+const BASE_H        = 270
+const GROUND_Y_FRAC = 0.80       // fraction of H
+const LEVEL_WIDTH   = 3000
+const PLAYER_SPEED  = 185
+const JUMP_VEL      = -410
+const DMG_COOLDOWN  = 900        // ms
 
+// ── Year themes ───────────────────────────────────────────────────────────────
 const PALETTES = [
-  { sky: 0x0d1b4b, mid: 0x1a2e6e, ground: 0x2d4a8a, accent: 0x5b8cff, fog: 0x0a1235, name: 'YEAR 1 - CONFUSION'      },
-  { sky: 0x0a2a0a, mid: 0x0e3d0e, ground: 0x1a5c1a, accent: 0x39ff14, fog: 0x061806, name: 'YEAR 2 - LAB HELL'        },
-  { sky: 0x2a1a00, mid: 0x4a2d00, ground: 0x7a4a00, accent: 0xff8800, fog: 0x1a0d00, name: 'YEAR 3 - PROJECT PANIC'   },
-  { sky: 0x1a0000, mid: 0x3d0000, ground: 0x660000, accent: 0xff2222, fog: 0x0d0000, name: 'YEAR 4 - PLACEMENT HELL'  },
+  {
+    sky: 0x0d1b4b, mid: 0x1a2e6e, ground: 0x2d4a8a,
+    accent: 0x5b8cff, fog: 0x0a1235,
+    name: 'YEAR 1 — FRESHMAN CONFUSION',
+    particleA: 0x5b8cff, particleB: 0xffffff,
+    ambientLight: 0x2233aa,
+  },
+  {
+    sky: 0x061206, mid: 0x0e3d0e, ground: 0x1a5c1a,
+    accent: 0x39ff14, fog: 0x030803,
+    name: 'YEAR 2 — LAB HELL',
+    particleA: 0x39ff14, particleB: 0x00cc44,
+    ambientLight: 0x112211,
+  },
+  {
+    sky: 0x2a1a00, mid: 0x4a2d00, ground: 0x7a4a00,
+    accent: 0xff8800, fog: 0x1a0d00,
+    name: 'YEAR 3 — PROJECT PANIC + BOSS',
+    particleA: 0xff8800, particleB: 0xffcc00,
+    ambientLight: 0x331a00,
+  },
 ]
 
+// ── Enemy definitions per year ────────────────────────────────────────────────
 const YEAR_ENEMIES = [
   [
-    { label: 'Lost Syllabus',  hp: 2, speed: 50,  color: 0x6688cc, size: 18 },
-    { label: 'Hostel Ragging', hp: 3, speed: 65,  color: 0xcc4466, size: 22 },
-    { label: 'Dean Notice',    hp: 2, speed: 45,  color: 0xccaa00, size: 20 },
-    { label: 'Attendance%',    hp: 4, speed: 70,  color: 0xff6644, size: 24 },
+    { label: 'Lost Syllabus',  hp: 2, speed: 55,  color: 0x6688cc, w: 26, h: 26, score: 30 },
+    { label: 'Hostel Ragging', hp: 3, speed: 68,  color: 0xcc4466, w: 28, h: 28, score: 40 },
+    { label: 'Dean Notice',    hp: 2, speed: 48,  color: 0xccaa00, w: 24, h: 24, score: 30 },
+    { label: 'Attendance%',    hp: 4, speed: 75,  color: 0xff6644, w: 30, h: 30, score: 50 },
   ],
   [
-    { label: 'Segfault',   hp: 3, speed: 55,  color: 0x44cc44, size: 20 },
-    { label: 'Viva',       hp: 4, speed: 80,  color: 0x88ff44, size: 22 },
-    { label: 'Lab Report', hp: 2, speed: 45,  color: 0x44ffaa, size: 18 },
-    { label: 'Compiler',   hp: 5, speed: 90,  color: 0xff4444, size: 26 },
+    { label: 'Segfault',   hp: 3, speed: 60,  color: 0x44cc44, w: 26, h: 26, score: 50 },
+    { label: 'Viva Exam',  hp: 4, speed: 82,  color: 0x88ff44, w: 28, h: 28, score: 60 },
+    { label: 'Lab Report', hp: 2, speed: 50,  color: 0x44ffaa, w: 24, h: 24, score: 40 },
+    { label: 'Compiler',   hp: 5, speed: 95,  color: 0xff4444, w: 32, h: 32, score: 70 },
   ],
   [
-    { label: 'Deadline',     hp: 4, speed: 70,  color: 0xff8800, size: 22 },
-    { label: 'No WiFi',      hp: 3, speed: 60,  color: 0xffaa00, size: 20 },
-    { label: 'Client',       hp: 5, speed: 85,  color: 0xff5500, size: 24 },
-    { label: 'Git Conflict', hp: 6, speed: 95,  color: 0xff3300, size: 28 },
-  ],
-  [
-    { label: 'HR Round',    hp: 5, speed: 75,  color: 0xdd0000, size: 22 },
-    { label: 'DSA Sheet',   hp: 6, speed: 90,  color: 0xbb0000, size: 24 },
-    { label: 'Resume Gap',  hp: 4, speed: 65,  color: 0xff2200, size: 20 },
-    { label: 'Ghosted',     hp: 7, speed: 100, color: 0x880022, size: 28 },
+    { label: 'Deadline',     hp: 4, speed: 72,  color: 0xff8800, w: 28, h: 28, score: 70 },
+    { label: 'No WiFi',      hp: 3, speed: 62,  color: 0xffaa00, w: 26, h: 26, score: 60 },
+    { label: 'Client',       hp: 5, speed: 88,  color: 0xff5500, w: 30, h: 30, score: 80 },
+    { label: 'Git Conflict', hp: 6, speed: 98,  color: 0xff3300, w: 34, h: 34, score: 100 },
   ],
 ]
 
+// ── Powerups ──────────────────────────────────────────────────────────────────
 const POWERUPS = [
-  { type: 'chai',           color: 0xcc8833, label: 'CHAI BOOST',   duration: 8000  },
-  { type: 'ragging_senior', color: 0x8833cc, label: 'SENIOR HELP',  duration: 6000  },
-  { type: 'coffee',         color: 0x442211, label: 'COFFEE RUN',   duration: 10000 },
-  { type: 'offer',          color: 0xffcc00, label: 'OFFER LETTER', duration: 12000 },
+  { type: 'chai',   color: 0xcc8833, label: 'CHAI BOOST',   duration: 8000,  desc: '50% dmg reduction' },
+  { type: 'hack',   color: 0x00ff88, label: 'HACKER MODE',  duration: 6000,  desc: '2× attack range' },
+  { type: 'coffee', color: 0xaa6622, label: 'COFFEE RUN',   duration: 10000, desc: '2× speed' },
 ]
 
-function colorHex(value) {
-  return `#${value.toString(16).padStart(6, '0')}`
+// ── Boss config ───────────────────────────────────────────────────────────────
+const BOSS_CFG = {
+  hp: 40, w: 80, h: 80,
+  phases: [
+    { threshold: 1.0,  color: 0xff2222, speed: 60,  shootInterval: 3000, shots: 1 },
+    { threshold: 0.65, color: 0xff6600, speed: 90,  shootInterval: 1800, shots: 2 },
+    { threshold: 0.35, color: 0xffcc00, speed: 120, shootInterval: 900,  shots: 3 },
+  ],
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Texture helpers
+// Helper: hex int → css string
 // ─────────────────────────────────────────────────────────────────────────────
-
-function replaceTexture(scene, key, drawFn) {
-  if (scene.textures.exists(key)) scene.textures.remove(key)
-  const g = scene.make.graphics({ add: false })
-  drawFn(g)
-  g.destroy()
+function hexStr(v) {
+  return `#${v.toString(16).padStart(6, '0')}`
 }
 
-function ensureTextures(scene) {
-  replaceTexture(scene, 'player', (g) => {
-    g.fillStyle(0x2255cc); g.fillRect(2, 10, 12, 10)
-    g.fillStyle(0xffcc99); g.fillRect(3, 2, 10, 9)
-    g.fillStyle(0x222222); g.fillRect(3, 2, 10, 3)
-    g.fillStyle(0x111111); g.fillRect(5, 7, 2, 2); g.fillRect(9, 7, 2, 2)
-    g.fillStyle(0x1a1a4a); g.fillRect(2, 20, 5, 6); g.fillRect(9, 20, 5, 6)
-    g.fillStyle(0x222222); g.fillRect(1, 24, 6, 3); g.fillRect(9, 24, 6, 3)
-    g.fillStyle(0x994400); g.fillRect(13, 10, 5, 8)
-    g.generateTexture('player', 20, 28)
-  })
-
-  replaceTexture(scene, 'player_jump', (g) => {
-    g.fillStyle(0x2255cc); g.fillRect(2, 10, 12, 10)
-    g.fillStyle(0xffcc99); g.fillRect(3, 2, 10, 9)
-    g.fillStyle(0x222222); g.fillRect(3, 2, 10, 3)
-    g.fillStyle(0x111111); g.fillRect(5, 7, 2, 2); g.fillRect(9, 7, 2, 2)
-    g.fillStyle(0x2255cc); g.fillRect(0, 6, 3, 8); g.fillRect(13, 6, 3, 8)
-    g.fillStyle(0xffcc99); g.fillRect(0, 4, 3, 4); g.fillRect(13, 4, 3, 4)
-    g.fillStyle(0x1a1a4a); g.fillRect(2, 20, 5, 6); g.fillRect(9, 20, 5, 6)
-    g.fillStyle(0x222222); g.fillRect(1, 24, 6, 3); g.fillRect(9, 24, 6, 3)
-    g.fillStyle(0x994400); g.fillRect(13, 10, 5, 8)
-    g.generateTexture('player_jump', 20, 28)
-  })
-
-  replaceTexture(scene, 'ground', (g) => {
-    g.fillStyle(0x334455); g.fillRect(0, 0, 32, 16)
-    g.fillStyle(0x3d5566); g.fillRect(0, 0, 32, 4)
-    g.fillStyle(0x2a3a48); g.fillRect(1, 5, 30, 1); g.fillRect(1, 9, 30, 1)
-    g.fillStyle(0x4a6677, 0.5)
-    for (let i = 0; i < 32; i += 4) g.fillRect(i, 0, 2, 16)
-    g.generateTexture('ground', 32, 16)
-  })
-
-  replaceTexture(scene, 'platform', (g) => {
-    g.fillStyle(0x445566); g.fillRect(0, 0, 64, 12)
-    g.fillStyle(0x556677); g.fillRect(0, 0, 64, 4)
-    g.fillStyle(0x334455); g.fillRect(0, 8, 64, 4)
-    g.generateTexture('platform', 64, 12)
-  })
-
-  replaceTexture(scene, 'pickup', (g) => {
-    const pts = []
-    for (let i = 0; i < 10; i++) {
-      const angle  = (i * Math.PI) / 5 - Math.PI / 2
-      const radius = i % 2 === 0 ? 12 : 6
-      pts.push(new Phaser.Geom.Point(16 + Math.cos(angle) * radius, 16 + Math.sin(angle) * radius))
-    }
-    g.fillStyle(0xffdd00)
-    g.fillPoints(pts, true)
-    g.fillStyle(0xffffff, 0.5)
-    g.fillCircle(16, 16, 4)
-    g.generateTexture('pickup', 32, 32)
-  })
-
-  replaceTexture(scene, 'pickup_hp', (g) => {
-    g.fillStyle(0xff3333); g.fillRect(12, 4, 8, 24)
-    g.fillStyle(0xff3333); g.fillRect(4, 12, 24, 8)
-    g.fillStyle(0xffffff, 0.6); g.fillRect(14, 6, 4, 20); g.fillRect(6, 14, 20, 4)
-    g.generateTexture('pickup_hp', 32, 32)
-  })
-
-  replaceTexture(scene, 'projectile', (g) => {
-    g.fillStyle(0xff4444); g.fillEllipse(6, 3, 12, 6)
-    g.fillStyle(0xffaaaa, 0.7); g.fillEllipse(5, 3, 7, 3)
-    g.generateTexture('projectile', 12, 6)
-  })
-
-  replaceTexture(scene, 'boss_proj', (g) => {
-    g.fillStyle(0xff0000); g.fillCircle(8, 8, 8)
-    g.fillStyle(0xff8800, 0.7); g.fillCircle(8, 8, 5)
-    g.fillStyle(0xffff00, 0.9); g.fillCircle(8, 8, 2)
-    g.generateTexture('boss_proj', 16, 16)
-  })
-
-  replaceTexture(scene, 'particle', (g) => {
-    g.fillStyle(0xffffff); g.fillCircle(4, 4, 4)
-    g.generateTexture('particle', 8, 8)
-  })
-
-  for (let y = 0; y < 4; y++) {
-    replaceTexture(scene, `bg_${y}`, (g) => {
-      const pal = PALETTES[y]
-      g.fillStyle(pal.sky); g.fillRect(0, 0, 160, 100)
-
-      if (y === 0) {
-        g.fillStyle(0xffffff, 0.8)
-        for (let i = 0; i < 30; i++) g.fillRect((Math.random() * 160) | 0, (Math.random() * 60) | 0, 1, 1)
-        g.fillStyle(0xeeeebb); g.fillCircle(130, 15, 8)
-        g.fillStyle(pal.sky); g.fillCircle(134, 13, 6)
-        g.fillStyle(0x0a1235)
-        g.fillRect(0, 55, 30, 45); g.fillRect(35, 60, 25, 40); g.fillRect(65, 50, 20, 50)
-        g.fillRect(90, 58, 28, 42); g.fillRect(125, 52, 35, 48)
-        g.fillStyle(0x0a1538); g.fillRect(67, 40, 26, 30)
-        g.fillStyle(0xffffff, 0.15); g.fillRect(75, 42, 10, 5)
-      } else if (y === 1) {
-        g.lineStyle(1, 0x003300, 0.5)
-        for (let i = 0; i < 160; i += 16) g.lineBetween(i, 0, i, 100)
-        for (let i = 0; i < 100; i += 16) g.lineBetween(0, i, 160, i)
-        g.fillStyle(0x00ff00, 0.04); g.fillRect(0, 0, 160, 100)
-        g.fillStyle(0x061806)
-        g.fillRect(0, 60, 40, 40); g.fillRect(50, 65, 30, 35); g.fillRect(90, 55, 35, 45); g.fillRect(130, 62, 30, 38)
-        g.fillStyle(0x003300); g.fillRect(5, 40, 25, 18); g.fillRect(55, 45, 20, 15); g.fillRect(95, 38, 25, 16)
-        g.fillStyle(0x00ff00, 0.3); g.fillRect(6, 41, 23, 16); g.fillRect(56, 46, 18, 13); g.fillRect(96, 39, 23, 14)
-      } else if (y === 2) {
-        g.fillGradientStyle(0x2a1a00, 0x2a1a00, 0x7a3300, 0x7a3300)
-        g.fillRect(0, 0, 160, 60)
-        g.fillStyle(0xff6600, 0.8); g.fillCircle(80, 50, 18)
-        g.fillStyle(0xffaa00, 0.5); g.fillCircle(80, 50, 28)
-        g.fillStyle(0x1a0d00)
-        g.fillRect(0, 55, 20, 45); g.fillRect(25, 48, 15, 52); g.fillRect(45, 60, 30, 40); g.fillRect(85, 52, 20, 48); g.fillRect(115, 58, 45, 42)
-        g.lineStyle(2, 0x1a0d00)
-        g.lineBetween(30, 48, 30, 20); g.lineBetween(30, 20, 60, 20); g.lineBetween(60, 20, 60, 35)
-      } else {
-        g.fillGradientStyle(0x1a0000, 0x1a0000, 0x550000, 0x550000)
-        g.fillRect(0, 0, 160, 100)
-        g.fillStyle(0x330000, 0.7); g.fillEllipse(30, 20, 50, 20); g.fillEllipse(80, 15, 60, 22); g.fillEllipse(140, 22, 40, 18)
-        g.lineStyle(2, 0xff4400, 0.6)
-        g.lineBetween(60, 20, 55, 35); g.lineBetween(55, 35, 63, 35); g.lineBetween(63, 35, 58, 50)
-        g.fillStyle(0x0d0000)
-        g.fillRect(0, 45, 25, 55); g.fillRect(30, 38, 20, 62); g.fillRect(55, 50, 30, 50); g.fillRect(90, 35, 25, 65); g.fillRect(120, 42, 40, 58)
-        g.fillStyle(0xff8800, 0.4)
-        for (let bx = 2; bx < 160; bx += 8) {
-          for (let by = 40; by < 100; by += 8) {
-            if (Math.random() > 0.6) g.fillRect(bx, by, 3, 3)
-          }
-        }
-      }
-
-      g.generateTexture(`bg_${y}`, 160, 100)
-    })
+// ─────────────────────────────────────────────────────────────────────────────
+// Texture factory — called once per scene create
+// ─────────────────────────────────────────────────────────────────────────────
+function buildTextures(scene) {
+  const make = (key, w, h, fn) => {
+    if (scene.textures.exists(key)) scene.textures.remove(key)
+    const g = scene.make.graphics({ add: false })
+    fn(g)
+    g.generateTexture(key, w, h)
+    g.destroy()
   }
 
-  for (let i = 0; i < YEAR_ENEMIES.length; i++) {
-    YEAR_ENEMIES[i].forEach((cfg, j) => {
-      replaceTexture(scene, `enemy_${i}_${j}`, (g) => {
-        const s = cfg.size
+  // ── Player ────────────────────────────────────────────────────────────────
+  make('player', 22, 32, g => {
+    g.fillStyle(0x1a1a4a); g.fillRect(3, 22, 7, 9); g.fillRect(12, 22, 7, 9)   // legs
+    g.fillStyle(0x222222); g.fillRect(1, 29, 8, 3); g.fillRect(12, 29, 8, 3)   // shoes
+    g.fillStyle(0x2255cc); g.fillRect(2, 11, 18, 13)                             // body
+    g.fillStyle(0x1a44aa); g.fillRect(2, 11, 18, 4)                              // collar
+    g.fillStyle(0xffcc99); g.fillRect(4, 2, 14, 11)                              // head
+    g.fillStyle(0x1a0a00); g.fillRect(3, 2, 16, 5)                               // hair
+    g.fillStyle(0x111111); g.fillRect(7, 8, 3, 3); g.fillRect(12, 8, 3, 3)      // eyes
+    g.fillStyle(0xffffff); g.fillRect(8, 9, 1, 1); g.fillRect(13, 9, 1, 1)      // pupils
+    g.fillStyle(0x994400); g.fillRect(18, 11, 6, 9)                              // arm
+  })
+
+  make('player_jump', 22, 32, g => {
+    g.fillStyle(0x1a1a4a); g.fillRect(1, 23, 7, 8); g.fillRect(14, 23, 7, 8)
+    g.fillStyle(0x222222); g.fillRect(0, 29, 8, 3); g.fillRect(14, 29, 8, 3)
+    g.fillStyle(0x2255cc); g.fillRect(2, 11, 18, 13)
+    g.fillStyle(0x2255cc); g.fillRect(-1, 8, 4, 10); g.fillRect(19, 8, 4, 10)  // arms up
+    g.fillStyle(0xffcc99); g.fillRect(-1, 6, 4, 5); g.fillRect(19, 6, 4, 5)   // hands
+    g.fillStyle(0xffcc99); g.fillRect(4, 2, 14, 11)
+    g.fillStyle(0x1a0a00); g.fillRect(3, 2, 16, 5)
+    g.fillStyle(0x111111); g.fillRect(7, 8, 3, 3); g.fillRect(12, 8, 3, 3)
+  })
+
+  // ── Ground tile ───────────────────────────────────────────────────────────
+  make('ground', 32, 20, g => {
+    g.fillStyle(0x334455); g.fillRect(0, 0, 32, 20)
+    g.fillStyle(0x4466aa, 0.6); g.fillRect(0, 0, 32, 3)          // top glow edge
+    g.fillStyle(0x2a3a48); g.fillRect(1, 5, 30, 1); g.fillRect(1, 11, 30, 1)
+    g.fillStyle(0x1e2e3a); g.fillRect(0, 16, 32, 4)
+    g.fillStyle(0x55779a, 0.3)
+    for (let i = 0; i < 32; i += 8) { g.fillRect(i, 0, 4, 20) }
+  })
+
+  // ── Platform ──────────────────────────────────────────────────────────────
+  make('platform', 96, 14, g => {
+    g.fillStyle(0x445566); g.fillRect(0, 0, 96, 14)
+    g.fillStyle(0x6688bb, 0.7); g.fillRect(3, 0, 90, 3)   // top highlight
+    g.fillStyle(0x223344); g.fillRect(0, 10, 96, 4)
+    g.fillStyle(0x334455); g.fillRect(0, 0, 4, 14); g.fillRect(92, 0, 4, 14)
+  })
+
+  // ── Pickup star ───────────────────────────────────────────────────────────
+  make('pickup', 28, 28, g => {
+    const pts = []
+    for (let i = 0; i < 10; i++) {
+      const a = (i * Math.PI) / 5 - Math.PI / 2
+      const r = i % 2 === 0 ? 13 : 6
+      pts.push(new Phaser.Geom.Point(14 + Math.cos(a) * r, 14 + Math.sin(a) * r))
+    }
+    g.fillStyle(0xffdd00); g.fillPoints(pts, true)
+    g.fillStyle(0xffffff, 0.5); g.fillCircle(14, 14, 4)
+  })
+
+  // ── HP pickup cross ───────────────────────────────────────────────────────
+  make('pickup_hp', 28, 28, g => {
+    g.fillStyle(0xff3333); g.fillRect(11, 3, 6, 22); g.fillRect(3, 11, 22, 6)
+    g.fillStyle(0xffffff, 0.6); g.fillRect(13, 5, 2, 18); g.fillRect(5, 13, 18, 2)
+  })
+
+  // ── Powerup orb ───────────────────────────────────────────────────────────
+  make('powerup', 32, 32, g => {
+    g.fillStyle(0x0088ff, 0.25); g.fillCircle(16, 16, 16)
+    g.fillStyle(0x0077ee); g.fillCircle(16, 16, 12)
+    g.fillStyle(0x44aaff, 0.85); g.fillCircle(14, 13, 8)
+    g.fillStyle(0xffffff, 0.7); g.fillCircle(12, 11, 4)
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(11, 10, 2)
+  })
+
+  // ── Projectile ────────────────────────────────────────────────────────────
+  make('projectile', 16, 10, g => {
+    g.fillStyle(0xff0000, 0.3); g.fillEllipse(8, 5, 18, 10)
+    g.fillStyle(0xff3300); g.fillCircle(8, 5, 5)
+    g.fillStyle(0xffbb44, 0.95); g.fillCircle(8, 5, 2)
+    g.fillStyle(0xffffff, 0.8); g.fillCircle(7, 4, 1)
+  })
+
+  make('boss_proj', 18, 18, g => {
+    g.fillStyle(0xff0000, 0.3); g.fillCircle(9, 9, 9)
+    g.fillStyle(0xff2200); g.fillCircle(9, 9, 7)
+    g.fillStyle(0xff8800, 0.9); g.fillCircle(9, 9, 4)
+    g.fillStyle(0xffff00, 0.95); g.fillCircle(9, 9, 2)
+  })
+
+  // ── Particle ──────────────────────────────────────────────────────────────
+  make('particle', 8, 8, g => {
+    g.fillStyle(0xffffff); g.fillCircle(4, 4, 4)
+  })
+
+  // ── Boss sprite ───────────────────────────────────────────────────────────
+  make('boss', 80, 88, g => {
+    // body suit
+    g.fillStyle(0x111111); g.fillRect(10, 26, 60, 50)
+    g.fillStyle(0xdd0000); g.fillRect(36, 26, 8, 32)  // tie
+    g.fillStyle(0x880000); g.fillRect(38, 36, 4, 18)
+    // head
+    g.fillStyle(0xffcc88); g.fillRect(16, 5, 48, 22)
+    g.fillStyle(0x111111); g.fillRect(16, 5, 48, 6)   // hair
+    // eyes
+    g.fillStyle(0xff0000); g.fillRect(21, 13, 10, 7); g.fillRect(49, 13, 10, 7)
+    g.fillStyle(0x000000); g.fillRect(24, 14, 4, 5);  g.fillRect(52, 14, 4, 5)
+    // brows
+    g.fillStyle(0x111111); g.fillRect(19, 11, 14, 3); g.fillRect(47, 11, 14, 3)
+    // mouth
+    g.fillStyle(0x222222); g.fillRect(25, 22, 30, 3)
+    g.fillStyle(0xffffff); g.fillRect(26, 22, 4, 2); g.fillRect(31, 22, 4, 2)
+    g.fillRect(36, 22, 4, 2); g.fillRect(41, 22, 4, 2)
+    // hands
+    g.fillStyle(0xffcc88); g.fillRect(0, 60, 12, 8); g.fillRect(68, 60, 12, 8)
+    // arms
+    g.fillStyle(0x111111); g.fillRect(0, 30, 12, 35); g.fillRect(68, 30, 12, 35)
+    // legs
+    g.fillStyle(0x111111); g.fillRect(10, 74, 24, 12); g.fillRect(46, 74, 24, 12)
+    g.fillStyle(0x000000); g.fillRect(8, 82, 28, 6);  g.fillRect(44, 82, 28, 6)
+  })
+
+  // ── Enemy sprites (per year × variant) ───────────────────────────────────
+  for (let y = 0; y < YEAR_ENEMIES.length; y++) {
+    YEAR_ENEMIES[y].forEach((cfg, j) => {
+      const s = cfg.w
+      make(`enemy_${y}_${j}`, s + 4, s + 4, g => {
         const c = cfg.color
-        g.fillStyle(c); g.fillRect(2, 4, s - 4, s - 4)
-        g.lineStyle(2, Phaser.Display.Color.ValueToColor(c).darken(30).color)
-        g.strokeRect(2, 4, s - 4, s - 4)
-        g.fillStyle(0xffffff); g.fillRect(4, 7, 5, 4); g.fillRect(s - 9, 7, 5, 4)
-        g.fillStyle(0x000000); g.fillRect(5, 8, 3, 3); g.fillRect(s - 8, 8, 3, 3)
-        g.fillStyle(0xff0000); g.fillRect(6, 9, 1, 1); g.fillRect(s - 7, 9, 1, 1)
-        g.fillStyle(0x000000); g.fillRect(5, s - 7, s - 10, 2)
-        g.fillStyle(0xffffff); g.fillRect(6, s - 7, 2, 2); g.fillRect(9, s - 7, 2, 2); g.fillRect(12, s - 7, 2, 2)
-        g.fillStyle(c); g.fillRect(2, s - 2, 5, 5); g.fillRect(s - 7, s - 2, 5, 5)
-        g.generateTexture(`enemy_${i}_${j}`, s + 2, s + 2)
+        const dark = Phaser.Display.Color.ValueToColor(c).darken(25).color
+        // body
+        g.fillStyle(c); g.fillRect(2, 4, s, s)
+        g.lineStyle(2, dark); g.strokeRect(2, 4, s, s)
+        // face
+        g.fillStyle(0xffffff); g.fillRect(5, 8, 7, 6); g.fillRect(s - 10, 8, 7, 6)
+        g.fillStyle(0x000000); g.fillRect(7, 9, 3, 4);  g.fillRect(s - 8, 9, 3, 4)
+        g.fillStyle(0xff0000); g.fillRect(8, 10, 1, 1); g.fillRect(s - 7, 10, 1, 1)
+        // angry brows
+        g.lineStyle(2, 0x000000)
+        g.lineBetween(5, 7, 13, 9); g.lineBetween(s - 2, 7, s - 10, 9)
+        // teeth
+        g.fillStyle(0x000000); g.fillRect(6, s - 6, s - 10, 4)
+        g.fillStyle(0xffffff)
+        for (let t = 0; t < 3; t++) g.fillRect(7 + t * 5, s - 6, 3, 3)
+        // legs
+        g.fillStyle(c); g.fillRect(3, s + 1, 6, 5); g.fillRect(s - 5, s + 1, 6, 5)
       })
     })
   }
 
-  replaceTexture(scene, 'boss', (g) => {
-    g.fillStyle(0x111111); g.fillRect(10, 25, 60, 50)
-    g.fillStyle(0xdd0000); g.fillRect(35, 25, 10, 35)
-    g.fillStyle(0x990000); g.fillRect(37, 40, 6, 20)
-    g.fillStyle(0xffcc88); g.fillRect(15, 4, 50, 22)
-    g.fillStyle(0x111111); g.fillRect(15, 4, 50, 5)
-    g.fillStyle(0xff0000); g.fillRect(20, 12, 10, 7); g.fillRect(50, 12, 10, 7)
-    g.fillStyle(0x000000); g.fillRect(23, 13, 4, 5); g.fillRect(53, 13, 4, 5)
-    g.fillStyle(0x111111); g.fillRect(18, 10, 14, 3); g.fillRect(48, 10, 14, 3)
-    g.fillStyle(0x222222); g.fillRect(25, 22, 30, 3)
-    g.fillStyle(0xffffff); g.fillRect(26, 22, 5, 2); g.fillRect(32, 22, 5, 2); g.fillRect(38, 22, 5, 2); g.fillRect(44, 22, 5, 2)
-    g.fillStyle(0xffffff); g.fillRect(25, 24, 12, 6); g.fillRect(43, 24, 12, 6)
-    g.fillStyle(0x111111); g.fillRect(0, 28, 12, 35); g.fillRect(68, 28, 12, 35)
-    g.fillStyle(0xffcc88); g.fillRect(0, 60, 12, 8); g.fillRect(68, 60, 12, 8)
-    g.fillStyle(0x884400); g.fillRect(66, 50, 16, 22)
-    g.fillStyle(0xaa6600); g.fillRect(67, 51, 14, 4)
-    g.lineStyle(1, 0x664400); g.strokeRect(66, 50, 16, 22)
-    g.fillStyle(0x111111); g.fillRect(10, 73, 25, 10); g.fillRect(45, 73, 25, 10)
-    g.fillStyle(0x000000); g.fillRect(8, 80, 28, 5); g.fillRect(44, 80, 28, 5)
-    g.generateTexture('boss', 80, 88)
-  })
+  // ── Backgrounds per year ──────────────────────────────────────────────────
+  for (let y = 0; y < 3; y++) {
+    const pal = PALETTES[y]
+    make(`bg_${y}`, 480, 270, g => {
+      // Sky gradient approximated with bands
+      const bands = 12
+      for (let i = 0; i < bands; i++) {
+        const t = i / bands
+        const skyR = ((pal.sky >> 16) & 0xff)
+        const skyG = ((pal.sky >>  8) & 0xff)
+        const skyB = ( pal.sky        & 0xff)
+        const midR = ((pal.mid >> 16) & 0xff)
+        const midG = ((pal.mid >>  8) & 0xff)
+        const midB = ( pal.mid        & 0xff)
+        const r = Math.round(skyR + (midR - skyR) * t)
+        const gr = Math.round(skyG + (midG - skyG) * t)
+        const b = Math.round(skyB + (midB - skyB) * t)
+        const col = (r << 16) | (gr << 8) | b
+        g.fillStyle(col); g.fillRect(0, i * (270 / bands), 480, 270 / bands + 1)
+      }
 
-  replaceTexture(scene, 'si_door', (g) => {
-    g.fillStyle(0x1a3a5a); g.fillRect(0, 0, 80, 100)
-    g.fillStyle(0x2255aa); g.fillRect(4, 4, 72, 92)
-    g.lineStyle(3, 0x44aaff); g.strokeRect(15, 30, 50, 70)
-    g.fillStyle(0x44aaff, 0.3); g.fillRect(16, 31, 48, 68)
-    g.fillStyle(0x00ffff); g.fillRect(20, 10, 40, 14)
-    g.fillStyle(0x001133); g.fillRect(22, 12, 36, 10)
-    g.fillStyle(0xffcc00); g.fillCircle(57, 65, 4)
-    g.generateTexture('si_door', 80, 100)
+      // Year-specific scenery
+      if (y === 0) {
+        // Stars + city silhouette
+        g.fillStyle(0xffffff, 0.7)
+        for (let i = 0; i < 50; i++) {
+          g.fillRect((Math.random() * 460) | 0, (Math.random() * 100) | 0, 1, 1)
+        }
+        // Moon
+        g.fillStyle(0xeeeebb); g.fillCircle(400, 30, 18)
+        g.fillStyle(pal.sky); g.fillCircle(406, 26, 14)
+        // Buildings
+        g.fillStyle(pal.fog)
+        const blds = [[0,55,35,215],[40,68,30,202],[80,52,25,218],[115,65,40,205],[165,45,30,225],[205,58,35,212],[250,48,28,222],[290,62,32,208],[335,40,38,230],[385,55,30,215],[425,62,50,208]]
+        blds.forEach(([x,y2,w,h]) => g.fillRect(x, y2, w, h))
+        // Windows
+        g.fillStyle(0xffee88, 0.4)
+        blds.forEach(([x,y2,w]) => {
+          for(let wy=y2+4;wy<200;wy+=12){
+            for(let wx=x+4;wx<x+w-4;wx+=8){
+              if(Math.random()>0.4) g.fillRect(wx,wy,5,7)
+            }
+          }
+        })
+      } else if (y === 1) {
+        // Matrix rain effect
+        g.lineStyle(1, 0x003300, 0.5)
+        for (let i = 0; i < 480; i += 20) g.lineBetween(i, 0, i, 270)
+        for (let i = 0; i < 270; i += 20) g.lineBetween(0, i, 480, i)
+        g.fillStyle(0x00ff00, 0.05); g.fillRect(0, 0, 480, 270)
+        // Buildings
+        g.fillStyle(0x061806)
+        ;[[0,62,40],[45,70,30],[85,55,35],[130,68,28],[170,48,40],[220,60,32],[262,52,38],[310,65,30],[350,44,45],[405,58,30],[445,65,35]].forEach(([x,y2,w]) => g.fillRect(x,y2,w,270))
+        // Green glows on screens
+        g.fillStyle(0x003300)
+        ;[[5,40,28,18],[50,45,22,15],[92,38,26,16],[135,42,20,14]].forEach(([x,y2,w,h]) => g.fillRect(x,y2,w,h))
+        g.fillStyle(0x00ff00, 0.25)
+        ;[[6,41,26,16],[51,46,20,13],[93,39,24,14],[136,43,18,12]].forEach(([x,y2,w,h]) => g.fillRect(x,y2,w,h))
+      } else {
+        // Sunset + fire city
+        g.fillStyle(0xff6600, 0.5); g.fillCircle(240, 135, 50)
+        g.fillStyle(0xffaa00, 0.25); g.fillCircle(240, 135, 75)
+        g.fillStyle(0x1a0d00)
+        ;[[0,55,25],[30,50,20],[60,62,28],[100,45,22],[135,55,32],[180,42,25],[220,58,30],[265,48,28],[305,60,22],[340,42,35],[385,54,25],[420,60,55]].forEach(([x,y2,w]) => g.fillRect(x,y2,w,270))
+        // Fire on tops
+        g.fillStyle(0xff4400, 0.6)
+        g.fillCircle(12, 53, 6); g.fillCircle(48, 48, 5); g.fillCircle(350, 40, 7)
+        // Crane
+        g.lineStyle(2, 0x1a0d00)
+        g.lineBetween(80, 50, 80, 20); g.lineBetween(80, 20, 120, 20); g.lineBetween(120, 20, 120, 40)
+      }
+    })
+  }
+
+  // ── SI-Lab exit door (year 2 only) ────────────────────────────────────────
+  make('exit_door', 60, 90, g => {
+    g.fillStyle(0x1a3a5a); g.fillRect(0, 0, 60, 90)
+    g.fillStyle(0x2255aa); g.fillRect(4, 4, 52, 82)
+    g.lineStyle(3, 0x44aaff); g.strokeRect(12, 25, 36, 65)
+    g.fillStyle(0x44aaff, 0.25); g.fillRect(13, 26, 34, 63)
+    g.fillStyle(0x00ffff); g.fillRect(16, 8, 28, 12)
+    g.fillStyle(0x001133); g.fillRect(18, 10, 24, 8)
+    g.fillStyle(0xffcc00); g.fillCircle(44, 58, 3)
   })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Support scenes (self-contained, no external imports needed)
+// Support Scenes
 // ─────────────────────────────────────────────────────────────────────────────
 
-class TransitionScene extends Phaser.Scene {
-  constructor() { super('BTechTransition') }
+class YearTransitionScene extends Phaser.Scene {
+  constructor() { super('YearTransition') }
 
   init(data) {
     this.nextYear  = data.year
@@ -279,123 +351,68 @@ class TransitionScene extends Phaser.Scene {
   }
 
   create() {
-    const pal      = PALETTES[this.nextYear]
-    const messages = [
-      ['FRESHMAN YEAR BEGINS',  'You arrive with dreams, a backpack,\nand absolutely no idea what you are doing.', '#5b8cff'],
-      ['SOPHOMORE YEAR',        'The labs are dark. The VMs crash.\nYour viva examiner has never smiled.',           '#39ff14'],
-      ['JUNIOR YEAR',           'Three projects due. One teammate missing.\nThe client wants "minor changes."',       '#ff8800'],
-      ['FINAL YEAR',            'This is it. PLACEMENTS.\nDSA. Aptitude. HR Rounds.\nThe final boss awaits.',        '#ff2222'],
+    const W   = this.scale.width
+    const H   = this.scale.height
+    const pal = PALETTES[Math.min(this.nextYear, PALETTES.length - 1)]
+
+    const yearTitles = [
+      ['YEAR 1', 'FRESHMAN CONFUSION', 'You arrive with dreams, a bag,\nand zero idea what you\'re doing.', '#5b8cff'],
+      ['YEAR 2', 'LAB HELL',           'The VMs crash. The viva examiner\nhas never smiled in their life.',   '#39ff14'],
+      ['YEAR 3', 'PROJECT PANIC',      'Three deadlines. One missing teammate.\nThe boss awaits at the end.',   '#ff8800'],
     ]
 
-    const [title, sub, color] = messages[this.nextYear]
+    const [yearLabel, subtitle, desc, col] = yearTitles[Math.min(this.nextYear, 2)]
+
+    // BG
     this.add.rectangle(W / 2, H / 2, W, H, 0x000000)
-    this.add.rectangle(W / 2, H / 2, W, H, pal.sky, 0.7)
+    this.add.rectangle(W / 2, H / 2, W, H, pal.sky, 0.75)
 
-    const yearTxt = this.add.text(W / 2, H / 2 - 55, `YEAR ${this.nextYear + 1}`, {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 10)}px`,
-      color,
-      stroke: '#000000', strokeThickness: 2,
-    }).setOrigin(0.5).setAlpha(0)
-
-    const titleTxt = this.add.text(W / 2, H / 2 - 20, title, {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 28)}px`,
-      color:      '#ffffff',
-    }).setOrigin(0.5).setAlpha(0)
-
-    const subTxt = this.add.text(W / 2, H / 2 + 20, sub, {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 50)}px`,
-      color:      '#aaaaaa',
-      align:      'center',
-    }).setOrigin(0.5).setAlpha(0)
-
-    this.add.text(W / 2, H / 2 + 70, `score so far: ${this.prevScore}`, {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 55)}px`,
-      color:      '#666688',
-    }).setOrigin(0.5)
-
-    ;[yearTxt, titleTxt, subTxt].forEach((item, index) => {
-      this.tweens.add({ targets: item, alpha: 1, delay: index * 250, duration: 400 })
-    })
-
-    this.time.delayedCall(3000, () => {
-      const gameScene = this.scene.get('GameScene')
-      if (gameScene) {
-        gameScene.year = this.nextYear
-        this.scene.resume('GameScene')
+    // Particle rain
+    const ptimer = this.time.addEvent({
+      delay: 80, loop: true,
+      callback: () => {
+        const p = this.add.circle(
+          Phaser.Math.Between(0, W),
+          0,
+          Phaser.Math.Between(1, 3),
+          pal.accent,
+          Phaser.Math.FloatBetween(0.3, 0.8)
+        )
+        this.tweens.add({ targets: p, y: H + 10, alpha: 0, duration: Phaser.Math.Between(1200, 2400), onComplete: () => p.destroy() })
       }
-      this.scene.stop()
-    })
-  }
-}
-
-class SILabScene extends Phaser.Scene {
-  constructor() { super('BTechSILab') }
-
-  create() {
-    this.add.rectangle(W / 2, H / 2, W, H, 0x000d1a)
-
-    const g = this.add.graphics()
-    g.lineStyle(0.5, 0x0044aa, 0.3)
-    for (let x = 0; x < W; x += 20) g.lineBetween(x, 0, x, H)
-    for (let y = 0; y < H; y += 20) g.lineBetween(0, y, W, y)
-
-    const signBg = this.add.rectangle(W / 2, H / 2 - 40, W * 0.8, 50, 0x001133)
-    signBg.setStrokeStyle(2, 0x0088ff)
-
-    this.add.text(W / 2, H / 2 - 52, 'S  I  L  A  B', {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 12)}px`,
-      color:      '#44aaff',
-    }).setOrigin(0.5)
-
-    this.add.text(W / 2, H / 2 - 28, 'SYSTEMS & INNOVATION LABORATORY', {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 55)}px`,
-      color:      '#336699',
-    }).setOrigin(0.5)
-
-    const lines = [
-      { y: H / 2 + 10, text: 'you push open the lab door.',           color: '#88aacc', delay: 600  },
-      { y: H / 2 + 25, text: 'the hum of servers fills the air.',     color: '#88aacc', delay: 1400 },
-      { y: H / 2 + 40, text: 'a professor nods - "you made it."',     color: '#aaccff', delay: 2400 },
-      { y: H / 2 + 55, text: '"4 years. now the real work begins."',  color: '#ccddff', delay: 3400 },
-    ]
-
-    lines.forEach(({ y, text, color, delay }) => {
-      const t = this.add.text(W / 2, y, '', {
-        fontFamily: '"Nunito", sans-serif',
-        fontSize:   `${Math.floor(W / 55)}px`,
-        color,
-      }).setOrigin(0.5).setAlpha(0)
-
-      this.time.delayedCall(delay, () => {
-        this.tweens.add({ targets: t, alpha: 1, duration: 400 })
-        let i = 0
-        this.time.addEvent({
-          delay: 45, repeat: text.length - 1,
-          callback: () => t.setText(text.substring(0, ++i)),
-        })
-      })
     })
 
-    const cont = this.add.text(W / 2, H - 20, '[ tap to continue ]', {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 55)}px`,
-      color:      '#334455',
+    const fs = n => Math.floor(W / n)
+
+    const yearTxt = this.add.text(W / 2, H / 2 - H * 0.28, yearLabel, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${fs(8)}px`,
+      color: col, stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setAlpha(0)
 
-    this.tweens.add({ targets: cont, alpha: 0.8, delay: 5000, duration: 800 })
-    this.tweens.add({ targets: cont, alpha: 0.2, delay: 5800, duration: 600, yoyo: true, repeat: -1 })
+    const subTxt = this.add.text(W / 2, H / 2 - H * 0.10, subtitle, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${fs(18)}px`,
+      color: '#ffffff',
+    }).setOrigin(0.5).setAlpha(0)
 
-    this.time.delayedCall(5000, () => {
-      this.input.once('pointerdown', () => {
-        this.scene.stop()
-        this.scene.start('BTechEnding')
-      })
+    const descTxt = this.add.text(W / 2, H / 2 + H * 0.08, desc, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${fs(36)}px`,
+      color: '#aaaaaa', align: 'center',
+    }).setOrigin(0.5).setAlpha(0)
+
+    this.add.text(W / 2, H / 2 + H * 0.30, `score so far: ${this.prevScore}`, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${fs(50)}px`,
+      color: '#555577',
+    }).setOrigin(0.5)
+
+    ;[yearTxt, subTxt, descTxt].forEach((item, i) => {
+      this.tweens.add({ targets: item, alpha: 1, delay: i * 280, duration: 420 })
+    })
+
+    this.time.delayedCall(3200, () => {
+      ptimer.remove()
+      this.scene.stop('GameScene')
+      this.scene.start('GameScene', { year: this.nextYear })
+      this.scene.stop()
     })
   }
 }
@@ -405,120 +422,85 @@ class EndingScene extends Phaser.Scene {
 
   create() {
     this._step  = 0
-    this._lines = this._buildStory()
-    this._showNext()
+    this._cards = this._buildCards()
+    this._showCard()
   }
 
-  _buildStory() {
-    const fs = (n) => `${Math.floor(W / n)}px`
-    const cx = W / 2
+  _buildCards() {
+    const W = this.scale.width
+    const H = this.scale.height
+    const fs = n => `${Math.floor(W / n)}px`
 
     return [
       () => {
-        this.add.rectangle(cx, H / 2, W, H, 0x0a0a1a)
-        const g = this.add.graphics()
-        g.fillGradientStyle(0x0a0a1a, 0x0a0a1a, 0xff6600, 0xff3300, 0.8)
-        g.fillRect(0, H * 0.5, W, H * 0.5)
-        g.fillGradientStyle(0x0a0a1a, 0x0a0a1a, 0xffaa00, 0xff6600, 0.4)
-        g.fillRect(0, H * 0.35, W, H * 0.3)
-        g.fillStyle(0xffcc44); g.fillCircle(cx, H * 0.52, W * 0.12)
-        g.fillStyle(0xffaa00, 0.3); g.fillCircle(cx, H * 0.52, W * 0.2)
-        g.fillStyle(0x050510)
-        g.fillRect(0, H * 0.65, W * 0.3, H * 0.4); g.fillRect(W * 0.65, H * 0.62, W * 0.4, H * 0.4)
-        g.fillRect(W * 0.35, H * 0.58, W * 0.3, H * 0.45)
-        g.fillStyle(0x0a0a1a); g.fillRect(W * 0.43, H * 0.65, W * 0.14, H * 0.4)
-        this.add.text(cx, H * 0.2, '"CONVOCATION DAY"', { fontFamily: '"Nunito", sans-serif', fontSize: fs(20), color: '#ffdd88', stroke: '#221100', strokeThickness: 2 }).setOrigin(0.5)
-        this.add.text(cx, H * 0.32, 'four years ago, you arrived here\nwith a dream and a hostel room key.', { fontFamily: '"Nunito", sans-serif', fontSize: fs(50), color: '#aa9977', align: 'center' }).setOrigin(0.5)
-      },
-      () => {
-        this.add.rectangle(cx, H / 2, W, H, 0x000000)
-        const cert = this.add.rectangle(cx, H / 2, W * 0.75, H * 0.6, 0xfff8e8)
-        cert.setStrokeStyle(4, 0xaa8800)
-        const i2 = this.add.rectangle(cx, H / 2, W * 0.68, H * 0.52, 0xfff8e8)
-        i2.setStrokeStyle(1, 0xcc9900)
-        this.add.text(cx, H * 0.2, 'BACHELOR OF TECHNOLOGY', { fontFamily: '"Nunito", sans-serif', fontSize: fs(38), color: '#553300' }).setOrigin(0.5)
-        this.add.text(cx, H * 0.34, 'This is to certify that', { fontFamily: '"Nunito", sans-serif', fontSize: fs(55), color: '#887755' }).setOrigin(0.5)
-        this.add.text(cx, H * 0.46, 'YOU', { fontFamily: '"Nunito", sans-serif', fontSize: fs(18), color: '#220000', stroke: '#aa6600', strokeThickness: 1 }).setOrigin(0.5)
-        this.add.text(cx, H * 0.58, 'has successfully survived\n4 years of B.Tech', { fontFamily: '"Nunito", sans-serif', fontSize: fs(52), color: '#666644', align: 'center' }).setOrigin(0.5)
-        this.add.text(cx, H * 0.74, `CGPA: ${GS.cgpa.toFixed(1)}  |  SCORE: ${GS.score}`, { fontFamily: '"Nunito", sans-serif', fontSize: fs(55), color: '#997744' }).setOrigin(0.5)
-        this.add.text(cx, H * 0.84, '* * *', { fontFamily: '"Nunito", sans-serif', fontSize: fs(30), color: '#ccaa00' }).setOrigin(0.5)
-      },
-      () => {
-        this.add.rectangle(cx, H / 2, W, H, 0x000810)
-        const g = this.add.graphics()
-        g.lineStyle(0.5, 0x001133, 0.4)
-        for (let x = 0; x < W; x += 16) g.lineBetween(x, 0, x, H)
-        for (let y = 0; y < H; y += 16) g.lineBetween(0, y, W, y)
-        this.add.text(cx, H * 0.1, '[ CAREER STATS ]', { fontFamily: '"Nunito", sans-serif', fontSize: fs(28), color: '#44aaff' }).setOrigin(0.5)
-        const stats = [
-          ['enemies defeated:', `${GS.totalEnemiesKilled}`],
-          ['final cgpa:', `${GS.cgpa.toFixed(2)}`],
-          ['final score:', `${GS.score}`],
-          ['all-nighters (est):', '47'],
-          ['cups of chai:', 'INF'],
-          ['rejection letters:', `${Math.max(0, 12 - Math.floor(GS.cgpa))}`],
-          ['placement status:', GS.cgpa >= 7.5 ? 'PLACED' : 'TRIES AGAIN'],
-        ]
-        stats.forEach(([k, v], i) => {
-          const y2 = H * 0.22 + i * H * 0.1
-          this.add.text(W * 0.12, y2, k, { fontFamily: '"Nunito", sans-serif', fontSize: fs(52), color: '#336688' })
-          this.add.text(W * 0.88, y2, v, { fontFamily: '"Nunito", sans-serif', fontSize: fs(52), color: '#44ddff' }).setOrigin(1, 0)
-        })
-      },
-      () => {
-        this.add.rectangle(cx, H / 2, W, H, 0x000000)
-        for (let i = 0; i < 50; i++) {
-          const x = Phaser.Math.Between(0, W)
-          const c = [0xffcc00, 0xff6600, 0x44aaff, 0xff44aa, 0x44ff88][i % 5]
-          const dot = this.add.rectangle(x, Phaser.Math.Between(-H, 0), Phaser.Math.Between(3, 8), Phaser.Math.Between(3, 8), c, 0.8)
+        this.add.rectangle(W/2, H/2, W, H, 0x050510)
+        // Confetti
+        for (let i = 0; i < 60; i++) {
+          const colors = [0xffcc00, 0xff6600, 0x44aaff, 0xff44aa, 0x44ff88]
+          const dot = this.add.rectangle(
+            Phaser.Math.Between(0, W), Phaser.Math.Between(-H, 0),
+            Phaser.Math.Between(4, 10), Phaser.Math.Between(4, 10),
+            Phaser.Utils.Array.GetRandom(colors), 0.8
+          )
           this.tweens.add({ targets: dot, y: H + 20, duration: Phaser.Math.Between(1500, 3500), delay: Phaser.Math.Between(0, 1500), repeat: -1 })
         }
-        this.add.text(cx, H * 0.2, '"THE JOURNEY ENDS.\nTHE STORY BEGINS."', {
-          fontFamily: '"Nunito", sans-serif', fontSize: fs(28), color: '#ffffff', align: 'center',
-          stroke: '#000000', strokeThickness: 2,
-        }).setOrigin(0.5)
-        const credits = [
-          'you survived the lost syllabi,',
-          'the midnight segfaults,',
-          'the impossible deadlines,',
-          'and the final boss: placements.',
-          '',
-          'it was never just about the degree.',
-          'it was about who you became.',
-          '',
-          `enemies defeated: ${GS.totalEnemiesKilled}`,
-          `score achieved: ${GS.score}`,
+        this.add.text(W/2, H*0.18, 'CONVOCATION DAY', { fontFamily: '"Nunito",sans-serif', fontSize: fs(18), color: '#ffdd88', stroke: '#221100', strokeThickness: 2 }).setOrigin(0.5)
+        this.add.text(W/2, H*0.34, 'Four years ago you arrived\nwith a dream and a hostel key.', { fontFamily: '"Nunito",sans-serif', fontSize: fs(38), color: '#aa9977', align: 'center' }).setOrigin(0.5)
+        this.add.text(W/2, H*0.58, 'Today you walk out a\nBachelor of Technology.', { fontFamily: '"Nunito",sans-serif', fontSize: fs(32), color: '#ccbbaa', align: 'center' }).setOrigin(0.5)
+      },
+      () => {
+        this.add.rectangle(W/2, H/2, W, H, 0x000000)
+        const cert = this.add.rectangle(W/2, H/2, W*0.78, H*0.82, 0xfff8e8)
+        cert.setStrokeStyle(4, 0xaa8800)
+        const i2 = this.add.rectangle(W/2, H/2, W*0.72, H*0.74, 0xfff8e8)
+        i2.setStrokeStyle(1, 0xcc9900)
+        this.add.text(W/2, H*0.16, 'BACHELOR OF TECHNOLOGY', { fontFamily: '"Nunito",sans-serif', fontSize: fs(30), color: '#553300' }).setOrigin(0.5)
+        this.add.text(W/2, H*0.30, 'This certifies that', { fontFamily: '"Nunito",sans-serif', fontSize: fs(50), color: '#887755' }).setOrigin(0.5)
+        this.add.text(W/2, H*0.44, 'YOU', { fontFamily: '"Nunito",sans-serif', fontSize: fs(14), color: '#220000', stroke: '#aa6600', strokeThickness: 1 }).setOrigin(0.5)
+        this.add.text(W/2, H*0.57, 'has survived 3 years +\nthe final boss: PLACEMENTS', { fontFamily: '"Nunito",sans-serif', fontSize: fs(42), color: '#666644', align: 'center' }).setOrigin(0.5)
+        this.add.text(W/2, H*0.74, `CGPA: ${GS.cgpa.toFixed(2)}  |  SCORE: ${GS.score}  |  KILLS: ${GS.totalKills}`, { fontFamily: '"Nunito",sans-serif', fontSize: fs(46), color: '#997744' }).setOrigin(0.5)
+        this.add.text(W/2, H*0.84, '★ ★ ★', { fontFamily: '"Nunito",sans-serif', fontSize: fs(22), color: '#ccaa00' }).setOrigin(0.5)
+      },
+      () => {
+        this.add.rectangle(W/2, H/2, W, H, 0x000810)
+        const g = this.add.graphics()
+        g.lineStyle(0.5, 0x001133, 0.4)
+        for (let x = 0; x < W; x += 18) g.lineBetween(x, 0, x, H)
+        for (let y = 0; y < H; y += 18) g.lineBetween(0, y, W, y)
+        this.add.text(W/2, H*0.08, '[ CAREER STATS ]', { fontFamily: '"Nunito",sans-serif', fontSize: fs(24), color: '#44aaff' }).setOrigin(0.5)
+        const stats = [
+          ['enemies defeated', `${GS.totalKills}`],
+          ['final cgpa',       `${GS.cgpa.toFixed(2)}`],
+          ['final score',      `${GS.score}`],
+          ['all-nighters (est)', '47'],
+          ['cups of chai',     '∞'],
+          ['rejection letters',`${Math.max(0, 12 - Math.floor(GS.cgpa))}`],
+          ['placement status', GS.cgpa >= 7.5 ? '✓ PLACED' : 'try harder lol'],
         ]
-        credits.forEach((line, i) => {
-          const t = this.add.text(cx, H * 0.42 + i * H * 0.057, line, {
-            fontFamily: '"Nunito", sans-serif', fontSize: fs(55),
-            color: i > 6 ? '#ffcc44' : '#778899', align: 'center',
-          }).setOrigin(0.5).setAlpha(0)
-          this.tweens.add({ targets: t, alpha: 1, delay: 400 + i * 250, duration: 500 })
+        stats.forEach(([k, v], i) => {
+          const y2 = H * 0.20 + i * H * 0.10
+          this.add.text(W * 0.10, y2, k, { fontFamily: '"Nunito",sans-serif', fontSize: fs(48), color: '#336688' })
+          this.add.text(W * 0.90, y2, v, { fontFamily: '"Nunito",sans-serif', fontSize: fs(48), color: '#44ddff' }).setOrigin(1, 0)
         })
-        this.time.delayedCall(6000, () => {
-          const replay = this.add.text(cx, H - 18, '[ tap to play again ]', {
-            fontFamily: '"Nunito", sans-serif', fontSize: fs(60), color: '#334455',
-          }).setOrigin(0.5).setAlpha(0)
-          this.tweens.add({ targets: replay, alpha: 0.8, duration: 600 })
-          this.tweens.add({ targets: replay, alpha: 0.2, delay: 600, duration: 500, yoyo: true, repeat: -1 })
+        this.time.delayedCall(5500, () => {
+          const replay = this.add.text(W/2, H - H*0.08, '[ tap to play again ]', { fontFamily: '"Nunito",sans-serif', fontSize: fs(52), color: '#334455' }).setOrigin(0.5).setAlpha(0)
+          this.tweens.add({ targets: replay, alpha: 0.9, duration: 600 })
+          this.tweens.add({ targets: replay, alpha: 0.15, delay: 600, duration: 500, yoyo: true, repeat: -1 })
           this.input.once('pointerdown', () => this.scene.start('GameScene', { year: 0, resetState: true }))
+          this.input.keyboard.once('keydown', () => this.scene.start('GameScene', { year: 0, resetState: true }))
         })
       },
     ]
   }
 
-  _showNext() {
-    if (this._step >= this._lines.length) return
+  _showCard() {
+    if (this._step >= this._cards.length) return
     this.children.removeAll(true)
-    this._lines[this._step]?.()
+    this._cards[this._step]?.()
     this._step++
-    if (this._step < this._lines.length) {
-      this.time.delayedCall(5200, () => this._showNext())
-      this.input.once('pointerdown', () => {
-        this.time.removeAllEvents()
-        this._showNext()
-      })
+    if (this._step < this._cards.length) {
+      const timer = this.time.delayedCall(5000, () => this._showCard())
+      this.input.once('pointerdown', () => { timer.remove(); this._showCard() })
     }
   }
 }
@@ -526,101 +508,132 @@ class EndingScene extends Phaser.Scene {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main GameScene
 // ─────────────────────────────────────────────────────────────────────────────
-
 export class GameScene extends Phaser.Scene {
   constructor() { super('GameScene') }
 
   // ── init ──────────────────────────────────────────────────────────────────
   init(data = {}) {
     this.year = data.year ?? 0
+
     if (data.resetState) {
-      GS.health          = 100
-      GS.maxHealth       = 100
-      GS.score           = 0
-      GS.year            = 0
-      GS.powerupType     = null
-      GS.powerupTimer    = 0
-      GS.cgpa            = 10.0
-      GS.hasResumeBoost  = false
-      GS.totalEnemiesKilled = 0
+      GS.health    = 100; GS.maxHealth = 100
+      GS.score     = 0;   GS.cgpa      = 10.0
+      GS.year      = 0;   GS.totalKills = 0
+      GS.powerupType = null; GS.powerupTimer = 0
+      GS.hasResumeBoost = false
     }
+
+    // Per-level state
     this._lastDmgTime    = 0
     this._jumpCount      = 0
     this._bossSpawned    = false
     this._levelComplete  = false
     this._transitioning  = false
-    this._killedEnemies  = 0
+    this._killedThisLevel = 0
     this._powerupActive  = false
     this._powerupEndTime = 0
     this._powerupType    = null
+    this._bossEntity     = null
+    this._bossHpBar      = null
+    this._bossPhaseLabel = null
+    this._bossPhase      = 0
+    this._lowHpWarning   = null
     this._bgTile         = null
-    this._lowHpWarn      = null
-    this._boss           = null
-    this._bossBar        = null
-    this._bossPhaseText  = null
+    this._particles      = null
+    this._scanlineOverlay = null
+
+    // Mobile button zones (set in _buildMobileControls)
+    this._btnLeft   = null
+    this._btnRight  = null
+    this._btnJump   = null
+    this._btnAttack = null
+
+    // Touch tracking
+    this._touchLeft   = false
+    this._touchRight  = false
+    this._touchJump   = false
+    this._touchAttack = false
   }
 
   // ── create ────────────────────────────────────────────────────────────────
   create() {
-    ensureTextures(this)
-    this._ensureSupportScenes()
-
+    const W   = this.scale.width
+    const H   = this.scale.height
     const pal = PALETTES[this.year]
 
-    this.scale.resize(W, H)
+    buildTextures(this)
+    this._ensureSupportScenes()
+
     this.physics.world.setBounds(0, 0, LEVEL_WIDTH, H)
-    this.physics.world.gravity.y = 700
+    this.physics.world.gravity.y = 750
 
-    this._buildBackground()
-    this._buildGround(pal)
-    this._buildPlatforms(pal)
+    this._groundY = H * GROUND_Y_FRAC
 
-    // physics groups
+    this._buildBackground(pal, W, H)
+    this._buildGround(pal, H)
+    this._buildPlatforms(pal, H)
+    this._buildAtmosphere(pal, W, H)
+
+    // Physics groups
     this.enemies     = this.physics.add.group()
     this.pickups     = this.physics.add.group()
-    this.projectiles = this.physics.add.group()  // player projectiles (unused for now)
-    this.bossProjs   = this.physics.add.group()  // boss projectiles — separate group
+    this.bossProjs   = this.physics.add.group()
 
-    // player
-    this.player = this.physics.add.image(60, GROUND_Y - 30, 'player')
+    // Particle emitter (Phaser 3.60+ API)
+    this._particles = this.add.particles(0, 0, 'particle', {
+      speed: { min: 60, max: 220 },
+      scale: { start: 0.9, end: 0 },
+      lifespan: { min: 250, max: 600 },
+      gravityY: 280,
+      emitting: false,
+      quantity: 0,
+    })
+
+    // Player
+    this.player = this.physics.add.image(70, this._groundY - 40, 'player')
     this.player
       .setCollideWorldBounds(true)
       .setBounce(0.02)
-      .setDragX(800)
-      .setMaxVelocity(380, 650)
+      .setDragX(900)
+      .setMaxVelocity(400, 700)
       .setDepth(10)
 
-    this._populateLevel()
+    this._populateLevel(H)
 
-    // camera
+    // Camera
     this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, H)
-    this.cameras.main.startFollow(this.player, true, 0.09, 0.09)
+    this.cameras.main.startFollow(this.player, true, 0.10, 0.10)
 
-    // colliders
-    this.physics.add.collider(this.player,  this.groundLayer)
-    this.physics.add.collider(this.player,  this.platforms)
-    this.physics.add.collider(this.enemies, this.groundLayer)
+    // Colliders
+    this.physics.add.collider(this.player, this.groundTiles)
+    this.physics.add.collider(this.player, this.platforms)
+    this.physics.add.collider(this.enemies, this.groundTiles)
     this.physics.add.collider(this.enemies, this.platforms)
 
-    // overlaps
-    this.physics.add.overlap(this.player, this.enemies,     this._onEnemyHit,  null, this)
-    this.physics.add.overlap(this.player, this.pickups,     this._onPickup,    null, this)
-    this.physics.add.overlap(this.player, this.bossProjs,   this._onProjHit,   null, this)
+    // Overlaps
+    this.physics.add.overlap(this.player, this.enemies,   this._onTouchEnemy, null, this)
+    this.physics.add.overlap(this.player, this.pickups,   this._onPickup,     null, this)
+    this.physics.add.overlap(this.player, this.bossProjs, this._onProjHit,    null, this)
 
-    // input
-    this.cursors    = this.input.keyboard.createCursorKeys()
-    this.wasd       = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' })
-    this.attackKey  = this.input.keyboard.addKey('Z')
-    this.attackKey2 = this.input.keyboard.addKey('X')
+    // Input — keyboard
+    this.cursors   = this.input.keyboard.createCursorKeys()
+    this.wasd      = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' })
+    this.atkKey    = this.input.keyboard.addKey('Z')
+    this.atkKey2   = this.input.keyboard.addKey('X')
 
-    this._joystick = { active: false, startX: 0, curX: 0 }
-    this._buildMobileControls()
-    this._buildHUD()
-    this._buildAtmosphere()
+    // Mobile
+    this._buildMobileControls(W, H)
 
-    this.cameras.main.fadeIn(400)
+    // HUD
+    this._buildHUD(W, H, pal)
 
-    // cleanup on shutdown
+    // Post-processing scanline overlay (fixed, over everything)
+    this._buildScanlines(W, H)
+
+    // Screen fade in
+    this.cameras.main.fadeIn(350)
+
+    // Cleanup on shutdown
     this.events.once('shutdown', () => {
       this.input.off('pointerdown')
       this.input.off('pointermove')
@@ -628,684 +641,907 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  // ── scene registration ────────────────────────────────────────────────────
+  // ── Support scene registration ─────────────────────────────────────────────
   _ensureSupportScenes() {
-    if (!this.scene.manager.keys['BTechTransition']) this.scene.add('BTechTransition', TransitionScene, false)
-    if (!this.scene.manager.keys['BTechSILab'])      this.scene.add('BTechSILab',      SILabScene,      false)
-    if (!this.scene.manager.keys['BTechEnding'])     this.scene.add('BTechEnding',     EndingScene,     false)
+    if (!this.scene.manager.keys['YearTransition']) this.scene.add('YearTransition', YearTransitionScene, false)
+    if (!this.scene.manager.keys['BTechEnding'])    this.scene.add('BTechEnding',    EndingScene,         false)
   }
 
-  // ── background ────────────────────────────────────────────────────────────
-  _buildBackground() {
-    const sw = this.scale.width
-
-    this._bgTile = this.add.tileSprite(sw / 2, H / 2, sw, H, `bg_${this.year}`)
+  // ── Background ────────────────────────────────────────────────────────────
+  _buildBackground(pal, W, H) {
+    // Tiling city bg (parallax)
+    this._bgTile = this.add.tileSprite(W / 2, H / 2, W, H, `bg_${this.year}`)
       .setScrollFactor(0)
-      .setDepth(-3)
+      .setDepth(-5)
 
-    const pal = PALETTES[this.year]
-    const fg  = this.add.graphics().setScrollFactor(0).setDepth(-1)
-    fg.fillGradientStyle(pal.fog, pal.fog, pal.sky, pal.sky, 0.7, 0.7, 0, 0)
-    fg.fillRect(0, 0, sw, H)
+    // Fog gradient overlay (bottom)
+    const fog = this.add.graphics().setScrollFactor(0).setDepth(-3)
+    fog.fillGradientStyle(pal.fog, pal.fog, pal.sky, pal.sky, 0.8, 0.8, 0, 0)
+    fog.fillRect(0, 0, W, H)
 
+    // Accent light strip at horizon
+    const strip = this.add.graphics().setScrollFactor(0).setDepth(-2)
+    strip.fillGradientStyle(pal.accent, pal.accent, 0x000000, 0x000000, 0.12, 0.12, 0, 0)
+    strip.fillRect(0, H * GROUND_Y_FRAC - 6, W, 14)
+
+    // Zone labels
     this._getZoneLabels().forEach(({ x, text }) => {
-      this.add.text(x, 16, text, {
-        fontFamily: '"Nunito", sans-serif', fontSize: '6px', color: colorHex(pal.accent),
-      }).setAlpha(0.3).setDepth(0)
+      this.add.text(x, 18, text, {
+        fontFamily: '"Nunito", sans-serif',
+        fontSize: `${Math.floor(W / 60)}px`,
+        color: `#${pal.accent.toString(16).padStart(6, '0')}`,
+      }).setAlpha(0.28).setDepth(0)
     })
 
-    // SI-Lab door on year 3
-    if (this.year === 3) {
-      this.siDoor = this.add.image(LEVEL_WIDTH - 80, GROUND_Y - 50, 'si_door').setDepth(2)
-      const glow  = this.add.rectangle(LEVEL_WIDTH - 80, GROUND_Y - 30, 60, 80, 0x44aaff, 0.15).setDepth(1)
-      this.tweens.add({ targets: glow, alpha: 0.05, duration: 1200, yoyo: true, repeat: -1 })
-    }
+    // Exit door
+    const door = this.add.image(LEVEL_WIDTH - 70, this._groundY - 50, 'exit_door')
+      .setDepth(2)
+    const glow = this.add.rectangle(LEVEL_WIDTH - 70, this._groundY - 25, 50, 80, 0x44aaff, 0.12)
+      .setDepth(1)
+    this.tweens.add({ targets: glow, alpha: 0.04, duration: 1100, yoyo: true, repeat: -1 })
   }
 
   _getZoneLabels() {
-    const names = [
-      [{ x: 50, text: 'ORIENTATION' }, { x: 800, text: 'FIRST SEMESTER' }, { x: 1600, text: 'MID SEMS' }, { x: 2400, text: 'END SEMS' }],
-      [{ x: 50, text: 'LAB 1'       }, { x: 800, text: 'LAB 2'          }, { x: 1600, text: 'MINI PROJECT' }, { x: 2400, text: 'LAB VIVA' }],
-      [{ x: 50, text: 'IDEATION'    }, { x: 800, text: 'DEVELOPMENT'    }, { x: 1600, text: 'DEADLINES' }, { x: 2400, text: 'DEMO DAY' }],
-      [{ x: 50, text: 'RESUME'      }, { x: 800, text: 'APTITUDE'       }, { x: 1600, text: 'TECH ROUND' }, { x: 2400, text: 'HR / BOSS' }],
+    const sets = [
+      [{ x: 60,   text: 'ORIENTATION' }, { x: 900,  text: 'SEM 1' },       { x: 1800, text: 'MID-SEMS' },    { x: 2600, text: 'END-SEMS' }],
+      [{ x: 60,   text: 'LAB 1'       }, { x: 900,  text: 'LAB 2' },       { x: 1800, text: 'MINI PROJECT' }, { x: 2600, text: 'LAB VIVA' }],
+      [{ x: 60,   text: 'IDEATION'    }, { x: 900,  text: 'DEVELOPMENT' }, { x: 1800, text: 'DEADLINES' },   { x: 2600, text: 'BOSS FIGHT' }],
     ]
-    return names[this.year] || []
+    return sets[this.year] || []
   }
 
-  // ── ground & platforms ────────────────────────────────────────────────────
-  _buildGround(pal) {
-    pal = pal || PALETTES[this.year]
-    this.groundLayer = this.physics.add.staticGroup()
-    for (let x = 0; x < LEVEL_WIDTH; x += 32) {
-      const t = this.groundLayer.create(x + 16, GROUND_Y + 8, 'ground')
-      t.setTint(pal.ground)
-      t.refreshBody()
+  // ── Ground ────────────────────────────────────────────────────────────────
+  _buildGround(pal, H) {
+    this.groundTiles = this.physics.add.staticGroup()
+    const tileW = 32, tileH = 20
+    for (let x = 0; x < LEVEL_WIDTH; x += tileW) {
+      const t = this.groundTiles.create(x + tileW / 2, H * GROUND_Y_FRAC + tileH / 2, 'ground')
+      t.setTint(pal.ground).refreshBody()
     }
   }
 
-  _buildPlatforms(pal) {
-    pal = pal || PALETTES[this.year]
+  // ── Platforms ─────────────────────────────────────────────────────────────
+  _buildPlatforms(pal, H) {
+    const gy = H * GROUND_Y_FRAC
     const configs = [
-      [[350,GROUND_Y-55],[600,GROUND_Y-90],[900,GROUND_Y-60],[1100,GROUND_Y-100],[1400,GROUND_Y-70],[1700,GROUND_Y-50],[1900,GROUND_Y-90],[2200,GROUND_Y-65],[2500,GROUND_Y-80],[2800,GROUND_Y-55]],
-      [[300,GROUND_Y-60],[550,GROUND_Y-95],[750,GROUND_Y-60],[1000,GROUND_Y-80],[1300,GROUND_Y-105],[1500,GROUND_Y-70],[1800,GROUND_Y-90],[2100,GROUND_Y-55],[2400,GROUND_Y-80],[2700,GROUND_Y-100]],
-      [[400,GROUND_Y-50],[650,GROUND_Y-85],[900,GROUND_Y-110],[1050,GROUND_Y-70],[1300,GROUND_Y-90],[1600,GROUND_Y-55],[1900,GROUND_Y-80],[2150,GROUND_Y-100],[2450,GROUND_Y-65],[2750,GROUND_Y-85]],
-      [[300,GROUND_Y-65],[500,GROUND_Y-100],[700,GROUND_Y-70],[1000,GROUND_Y-95],[1300,GROUND_Y-60],[1600,GROUND_Y-85],[1900,GROUND_Y-110],[2200,GROUND_Y-70],[2500,GROUND_Y-90],[2800,GROUND_Y-65]],
+      [[320,gy-70],[580,gy-105],[870,gy-75],[1120,gy-120],[1380,gy-80],[1650,gy-60],[1920,gy-105],[2200,gy-78],[2480,gy-95],[2750,gy-60]],
+      [[290,gy-80],[545,gy-120],[810,gy-70],[1060,gy-140],[1330,gy-90],[1620,gy-65],[1900,gy-115],[2180,gy-58],[2450,gy-95],[2720,gy-110]],
+      [[310,gy-75],[570,gy-115],[860,gy-145],[1060,gy-80],[1340,gy-105],[1640,gy-60],[1940,gy-90],[2200,gy-130],[2480,gy-70],[2760,gy-100]],
     ]
     this.platforms = this.physics.add.staticGroup()
-    ;(configs[this.year] || []).forEach(([x, y]) => {
+    ;(configs[this.year] || configs[0]).forEach(([x, y]) => {
       const p = this.platforms.create(x, y, 'platform')
-      p.setTint(pal.ground)
-      p.refreshBody()
+      p.setTint(pal.ground).refreshBody()
     })
   }
 
-  // ── atmosphere ────────────────────────────────────────────────────────────
-  _buildAtmosphere() {
+  // ── Atmosphere effects ────────────────────────────────────────────────────
+  _buildAtmosphere(pal, W, H) {
     if (this.year === 0) {
-      for (let i = 0; i < 40; i++) {
+      // Twinkling stars
+      for (let i = 0; i < 60; i++) {
         const s = this.add.circle(
           Phaser.Math.Between(0, LEVEL_WIDTH),
-          Phaser.Math.Between(0, GROUND_Y - 60),
+          Phaser.Math.Between(0, H * 0.55),
           Phaser.Math.Between(1, 2), 0xffffff,
-          Phaser.Math.FloatBetween(0.3, 0.9)
-        ).setDepth(-2)
-        this.tweens.add({ targets: s, alpha: 0.1, duration: Phaser.Math.Between(800, 2500), yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 2000) })
+          Phaser.Math.FloatBetween(0.2, 0.9)
+        ).setDepth(-4)
+        this.tweens.add({
+          targets: s, alpha: 0.05,
+          duration: Phaser.Math.Between(600, 2200),
+          yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 2000)
+        })
       }
     } else if (this.year === 1) {
-      this._rainTimer = this.time.addEvent({
-        delay: 150, loop: true,
+      // Matrix rain
+      this._matrixTimer = this.time.addEvent({
+        delay: 120, loop: true,
         callback: () => {
-          const x     = Phaser.Math.Between(0, LEVEL_WIDTH)
-          const chars = ['0','1','#','$','@','!','?','{','}']
-          const c     = this.add.text(x, 0, Phaser.Utils.Array.GetRandom(chars), {
-            fontFamily: '"Nunito", sans-serif', fontSize: '8px', color: '#00ff00',
-          }).setAlpha(0.4).setDepth(-1)
-          this.tweens.add({ targets: c, y: H, duration: Phaser.Math.Between(1500, 3000), alpha: 0, onComplete: () => c.destroy() })
-        },
+          const chars = ['0','1','#','$','@','!','?','{','}','<','>']
+          const c = this.add.text(
+            Phaser.Math.Between(0, LEVEL_WIDTH), -10,
+            Phaser.Utils.Array.GetRandom(chars),
+            { fontFamily: 'monospace', fontSize: '8px', color: '#00ff00' }
+          ).setAlpha(0.35).setDepth(-2)
+          this.tweens.add({ targets: c, y: H + 10, duration: Phaser.Math.Between(1200, 2800), alpha: 0, onComplete: () => c.destroy() })
+        }
       })
     } else if (this.year === 2) {
+      // Flying debris + ember
       this._debrisTimer = this.time.addEvent({
-        delay: 800, loop: true,
+        delay: 600, loop: true,
         callback: () => {
-          const y = Phaser.Math.Between(20, GROUND_Y - 50)
-          const d = this.add.rectangle(LEVEL_WIDTH + 20, y, Phaser.Math.Between(4, 12), Phaser.Math.Between(4, 12), 0xff8800, 0.6).setDepth(-1)
-          this.tweens.add({ targets: d, x: -50, duration: Phaser.Math.Between(2000, 4000), angle: 360, onComplete: () => d.destroy() })
-        },
-      })
-    } else if (this.year === 3) {
-      this._rejectTimer = this.time.addEvent({
-        delay: 400, loop: true,
-        callback: () => {
-          const msgs = ['REJECTED','NOT SELECTED','MOVED ON','UNSUCCESSFUL']
-          const r    = this.add.text(Phaser.Math.Between(0, LEVEL_WIDTH), -10, Phaser.Utils.Array.GetRandom(msgs), {
-            fontFamily: '"Nunito", sans-serif', fontSize: '5px', color: '#ff3333',
-          }).setAlpha(0.3).setDepth(-1)
-          this.tweens.add({ targets: r, y: H + 10, duration: Phaser.Math.Between(3000, 6000), alpha: 0, onComplete: () => r.destroy() })
-        },
+          const y = Phaser.Math.Between(20, H * 0.65)
+          const d = this.add.rectangle(
+            LEVEL_WIDTH + 20, y,
+            Phaser.Math.Between(4, 14), Phaser.Math.Between(4, 14),
+            0xff8800, 0.65
+          ).setDepth(-1)
+          this.tweens.add({
+            targets: d, x: -60, angle: 360,
+            duration: Phaser.Math.Between(1800, 3600),
+            onComplete: () => d.destroy()
+          })
+        }
       })
     }
   }
 
-  // ── level population ──────────────────────────────────────────────────────
-  _populateLevel() {
-    const cfgs      = YEAR_ENEMIES[this.year]
-    const positions = []
-    for (let i = 0; i < 12; i++) positions.push(300 + i * 220 + Phaser.Math.Between(-40, 40))
-
-    positions.forEach((x, i) => {
-      const cfg = cfgs[i % cfgs.length]
-      this._spawnEnemy(x, GROUND_Y - cfg.size / 2 - 2, cfg, i)
-    })
-
-    ;[450, 900, 1400, 1900, 2400].forEach((x, i) => {
-      this._spawnPickup(x, GROUND_Y - 50, i % 2 === 0 ? 'pickup' : 'pickup_hp')
-    })
-
-    this._spawnPowerup(700 + this.year * 300, GROUND_Y - 55)
-
-    // Boss only on year 3; spawn with a small delay so physics is settled
-    if (this.year === 3) {
-      this.time.delayedCall(200, () => this._spawnBoss())
+  // ── Scanline post-process ─────────────────────────────────────────────────
+  _buildScanlines(W, H) {
+    const scan = this.add.graphics().setScrollFactor(0).setDepth(200)
+    scan.fillStyle(0x000000, 0.07)
+    for (let y = 0; y < H; y += 3) {
+      scan.fillRect(0, y, W, 1)
+    }
+    // Vignette edges
+    const vig = this.add.graphics().setScrollFactor(0).setDepth(199)
+    const edgeW = W * 0.10
+    for (let x = 0; x < edgeW; x++) {
+      const a = 0.45 * (1 - x / edgeW)
+      vig.fillStyle(0x000000, a)
+      vig.fillRect(x, 0, 1, H)
+      vig.fillRect(W - x - 1, 0, 1, H)
+    }
+    const edgeH = H * 0.14
+    for (let y = 0; y < edgeH; y++) {
+      const a = 0.35 * (1 - y / edgeH)
+      vig.fillStyle(0x000000, a)
+      vig.fillRect(0, y, W, 1)
+      vig.fillRect(0, H - y - 1, W, 1)
     }
   }
 
-  _spawnEnemy(x, y, cfg, idx) {
-    const key = `enemy_${this.year}_${idx % YEAR_ENEMIES[this.year].length}`
-    const e   = this.enemies.create(x, y, key)
-    e.setCollideWorldBounds(true).setBounce(0.1).setDepth(8)
+  // ── Populate level entities ────────────────────────────────────────────────
+  _populateLevel(H) {
+    const gy     = this._groundY
+    const cfgs   = YEAR_ENEMIES[this.year]
+    const count  = 11
+
+    for (let i = 0; i < count; i++) {
+      const cfg  = cfgs[i % cfgs.length]
+      const x    = 320 + i * 240 + Phaser.Math.Between(-30, 30)
+      const key  = `enemy_${this.year}_${i % cfgs.length}`
+      this._spawnEnemy(x, gy - cfg.h / 2 - 2, cfg, key)
+    }
+
+    // Pickups — alternating score / hp
+    ;[480, 950, 1430, 1910, 2380].forEach((x, i) => {
+      this._spawnPickup(x, gy - 52, i % 2 === 0 ? 'pickup' : 'pickup_hp')
+    })
+
+    // Powerup
+    const puCfg = POWERUPS[this.year]
+    this._spawnPowerupPickup(750 + this.year * 280, gy - 60, puCfg)
+
+    // Boss on year 2 (year index 2 = "Year 3 — Project Panic")
+    if (this.year === 2) {
+      this.time.delayedCall(300, () => this._spawnBoss(H))
+    }
+  }
+
+  _spawnEnemy(x, y, cfg, key) {
+    const e = this.enemies.create(x, y, key)
+    e.setCollideWorldBounds(true).setBounce(0.08).setDepth(8)
     e.setData('hp',    cfg.hp)
     e.setData('maxHp', cfg.hp)
-    e.setData('speed', cfg.speed)
+    e.setData('speed', cfg.speed + Phaser.Math.Between(-8, 8))
     e.setData('label', cfg.label)
+    e.setData('score', cfg.score)
     e.setData('isBoss', false)
+    e.setData('jumpTimer', Phaser.Math.FloatBetween(0, 2))
 
-    const lbl = this.add.text(x, y - cfg.size / 2 - 10, cfg.label, {
-      fontFamily: '"Nunito", sans-serif', fontSize: '5px', color: '#ffaaaa',
-    }).setOrigin(0.5).setDepth(9)
-    e.setData('lbl', lbl)
+    // HP bar
+    const barBg = this.add.rectangle(x, y - cfg.h / 2 - 10, cfg.w + 4, 5, 0x330000).setDepth(9)
+    const barFg = this.add.rectangle(x - 2, y - cfg.h / 2 - 10, cfg.w, 3, 0xff3333).setOrigin(0, 0.5).setDepth(10)
+    const lbl   = this.add.text(x, y - cfg.h / 2 - 18, cfg.label, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(this.scale.width / 65)}px`, color: '#ffaaaa',
+    }).setOrigin(0.5).setDepth(10)
+
+    e.setData('barBg', barBg)
+    e.setData('barFg', barFg)
+    e.setData('lbl',   lbl)
     return e
   }
 
-  _spawnPickup(x, y, key = 'pickup') {
+  _spawnPickup(x, y, key) {
     const p = this.pickups.create(x, y, key)
-    p.setCollideWorldBounds(false).setDepth(7)
     p.body.allowGravity = false
+    p.setDepth(7)
     p.setData('pickupKey', key)
-    this.tweens.add({ targets: p, y: y - 10, yoyo: true, repeat: -1, duration: 800, ease: 'Sine.easeInOut' })
+    p.setData('isPowerup', false)
+    this.tweens.add({ targets: p, y: y - 10, yoyo: true, repeat: -1, duration: 900, ease: 'Sine.easeInOut' })
     return p
   }
 
-  _spawnPowerup(x, y) {
-    const pu = POWERUPS[this.year]
-    const p  = this.pickups.create(x, y, 'pickup')
-    p.setTint(pu.color).setDepth(7).setScale(1.2)
+  _spawnPowerupPickup(x, y, puCfg) {
+    const p = this.pickups.create(x, y, 'powerup')
     p.body.allowGravity = false
+    p.setDepth(7).setScale(1.3).setTint(puCfg.color)
     p.setData('isPowerup', true)
-    p.setData('puType', pu.type)
-    this.tweens.add({ targets: p, angle: 360, duration: 2000, repeat: -1, ease: 'Linear' })
-    this.tweens.add({ targets: p, y: y - 12, yoyo: true, repeat: -1, duration: 700 })
-    this.add.text(x, y - 25, pu.label, {
-      fontFamily: '"Nunito", sans-serif', fontSize: '5px', color: '#ffff88',
+    p.setData('puCfg', puCfg)
+    this.tweens.add({ targets: p, angle: 360, duration: 2200, repeat: -1, ease: 'Linear' })
+    this.tweens.add({ targets: p, y: y - 12, yoyo: true, repeat: -1, duration: 750 })
+
+    this.add.text(x, y - 30, puCfg.label, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(this.scale.width / 65)}px`, color: '#ffff88',
     }).setOrigin(0.5).setDepth(9)
     return p
   }
 
-  _spawnBoss() {
-    const boss = this.enemies.create(LEVEL_WIDTH - 300, GROUND_Y - 50, 'boss')
-    boss.setCollideWorldBounds(true).setDepth(9)
-    boss.setData('hp',       30)
-    boss.setData('maxHp',    30)
-    boss.setData('speed',    60)
-    boss.setData('isBoss',   true)
-    boss.setData('phase',    1)
-    boss.setData('lastShot', 0)
+  _spawnBoss(H) {
+    const gy = this._groundY
+    const e  = this.enemies.create(LEVEL_WIDTH - 360, gy - BOSS_CFG.h / 2 - 2, 'boss')
+    e.setCollideWorldBounds(true).setDepth(9)
+    e.setData('hp',        BOSS_CFG.hp)
+    e.setData('maxHp',     BOSS_CFG.hp)
+    e.setData('isBoss',    true)
+    e.setData('phase',     0)
+    e.setData('lastShot',  0)
+    e.setData('speed',     BOSS_CFG.phases[0].speed)
+    e.setData('jumpTimer', 0)
 
-    // Boss needs its own colliders because it was added after the group colliders
-    this.physics.add.collider(boss, this.groundLayer)
-    this.physics.add.collider(boss, this.platforms)
+    this.physics.add.collider(e, this.groundTiles)
+    this.physics.add.collider(e, this.platforms)
 
-    const sw = this.scale.width
-    // Boss HP bar (HUD)
-    this.add.rectangle(sw / 2, 20, 200, 10, 0x220000).setScrollFactor(0).setDepth(50)
-    this._bossBar = this.add.rectangle(sw / 2 - 99, 20, 198, 8, 0xff0000)
-      .setScrollFactor(0).setDepth(51).setOrigin(0, 0.5)
-    this.add.text(sw / 2, 10, 'PLACEMENTS', {
-      fontFamily: '"Nunito", sans-serif', fontSize: '6px', color: '#ff4444',
-    }).setScrollFactor(0).setDepth(51).setOrigin(0.5)
+    const W    = this.scale.width
+    const bHud = this.add.container(0, 0).setScrollFactor(0).setDepth(60)
 
-    this._bossPhaseText = this.add.text(sw / 2, 30, 'PHASE 1', {
-      fontFamily: '"Nunito", sans-serif', fontSize: '5px', color: '#ff8888',
-    }).setScrollFactor(0).setDepth(51).setOrigin(0.5)
+    const barBg = this.add.rectangle(W / 2, 22, 220, 12, 0x220000).setScrollFactor(0)
+    this._bossHpBar = this.add.rectangle(W / 2 - 108, 22, 216, 8, 0xff0000).setOrigin(0, 0.5).setScrollFactor(0).setDepth(61)
+    const barLabel  = this.add.text(W / 2, 12, 'PLACEMENTS BOSS', {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 56)}px`, color: '#ff4444',
+    }).setScrollFactor(0).setDepth(61).setOrigin(0.5)
+    this._bossPhaseLabel = this.add.text(W / 2, 32, 'PHASE 1', {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 70)}px`, color: '#ff9999',
+    }).setScrollFactor(0).setDepth(61).setOrigin(0.5)
 
+    this._bossEntity  = e
     this._bossSpawned = true
-    this._boss        = boss
 
-    this.cameras.main.shake(600, 0.02)
-    const warning = this.add.text(sw / 2, H / 2, 'PLACEMENTS INCOMING', {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(sw / 25)}px`,
-      color:      '#ff0000',
+    // Warning flash
+    this.cameras.main.shake(700, 0.022)
+    const warn = this.add.text(W / 2, H / 2, '⚠ PLACEMENTS INCOMING ⚠', {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 22)}px`, color: '#ff0000',
     }).setScrollFactor(0).setDepth(100).setOrigin(0.5)
-    this.tweens.add({ targets: warning, alpha: 0, duration: 2500, delay: 500, onComplete: () => warning.destroy() })
+    this.tweens.add({ targets: warn, alpha: 0, delay: 600, duration: 2200, onComplete: () => warn.destroy() })
   }
 
   // ── HUD ───────────────────────────────────────────────────────────────────
-  _buildHUD() {
-    const sw = this.scale.width
-    this.add.rectangle(sw / 2, 10, sw, 20, 0x000000, 0.65).setScrollFactor(0).setDepth(40)
+  _buildHUD(W, H, pal) {
+    // Top bar bg
+    const hudBg = this.add.graphics().setScrollFactor(0).setDepth(50)
+    hudBg.fillStyle(0x000000, 0.70)
+    hudBg.fillRect(0, 0, W, 28)
 
-    this._hudHp     = this.add.text(8, 4, 'HP 100', { fontFamily: '"Nunito", sans-serif', fontSize: '7px', color: '#ff6666' }).setScrollFactor(0).setDepth(41)
-    this._hudScore  = this.add.text(sw / 2, 4, 'SCORE: 0', { fontFamily: '"Nunito", sans-serif', fontSize: '7px', color: '#aabbff' }).setScrollFactor(0).setDepth(41).setOrigin(0.5, 0)
-    this._hudYear   = this.add.text(sw - 8, 4, `YEAR ${this.year + 1}`, { fontFamily: '"Nunito", sans-serif', fontSize: '7px', color: '#ffcc44' }).setScrollFactor(0).setDepth(41).setOrigin(1, 0)
+    // HP bar
+    this._hudHpBg  = this.add.rectangle(10,  14, 90, 8, 0x330000).setScrollFactor(0).setDepth(51).setOrigin(0, 0.5)
+    this._hudHpBar = this.add.rectangle(10,  14, 90, 6, 0xff3333).setScrollFactor(0).setDepth(52).setOrigin(0, 0.5)
+    this._hudHpTxt = this.add.text(14, 10, 'HP 100', {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 65)}px`, color: '#ff9999',
+    }).setScrollFactor(0).setDepth(52)
 
-    this._hpBarBg   = this.add.rectangle(8, 14, 80, 4, 0x330000).setScrollFactor(0).setDepth(41).setOrigin(0, 0.5)
-    this._hpBar     = this.add.rectangle(8, 14, 80, 4, 0xff3333).setScrollFactor(0).setDepth(42).setOrigin(0, 0.5)
-    this._hudPowerup = this.add.text(8, 20, '', { fontFamily: '"Nunito", sans-serif', fontSize: '5px', color: '#ffcc00' }).setScrollFactor(0).setDepth(41)
-    this._hudKills  = this.add.text(sw - 8, 14, 'K 0', { fontFamily: '"Nunito", sans-serif', fontSize: '5px', color: '#ff6666' }).setScrollFactor(0).setDepth(41).setOrigin(1, 0)
-    this._hudCgpa   = this.add.text(sw / 2, 14, `CGPA: ${GS.cgpa.toFixed(1)}`, { fontFamily: '"Nunito", sans-serif', fontSize: '5px', color: '#88aacc' }).setScrollFactor(0).setDepth(41).setOrigin(0.5, 0)
+    // Score (center)
+    this._hudScore = this.add.text(W / 2, 4, 'SCORE: 0', {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 52)}px`, color: '#aabbff',
+    }).setScrollFactor(0).setDepth(51).setOrigin(0.5, 0)
+
+    // Year / CGPA (right)
+    this._hudYear  = this.add.text(W - 8, 4, `YEAR ${this.year + 1}`, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 60)}px`, color: '#ffcc44',
+    }).setScrollFactor(0).setDepth(51).setOrigin(1, 0)
+
+    this._hudCgpa  = this.add.text(W - 8, 14, `CGPA ${GS.cgpa.toFixed(1)}`, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 72)}px`, color: '#88aacc',
+    }).setScrollFactor(0).setDepth(51).setOrigin(1, 0)
+
+    this._hudKills = this.add.text(W - 8, 22, `K: 0`, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 80)}px`, color: '#ff8888',
+    }).setScrollFactor(0).setDepth(51).setOrigin(1, 0)
+
+    // Powerup indicator
+    this._hudPowerup = this.add.text(10, 30, '', {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 72)}px`, color: '#ffcc00',
+    }).setScrollFactor(0).setDepth(51)
+
+    // Year banner (fades after 3 seconds)
+    const bannerTxt = this.add.text(W / 2, H / 2 - 30, PALETTES[this.year].name, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 26)}px`,
+      color: `#${pal.accent.toString(16).padStart(6, '0')}`,
+      stroke: '#000000', strokeThickness: 2,
+    }).setScrollFactor(0).setDepth(90).setOrigin(0.5)
+    this.tweens.add({ targets: bannerTxt, alpha: 0, delay: 2200, duration: 800, onComplete: () => bannerTxt.destroy() })
   }
 
   _updateHUD() {
     const hp = Math.max(0, GS.health)
-    this._hudHp?.setText(`HP ${hp}`)
-    if (this._hpBar) this._hpBar.width = (hp / GS.maxHealth) * 80
-    this._hpBar?.setFillStyle(hp < 30 ? 0xff0000 : hp < 60 ? 0xff8800 : 0xff3333)
+    this._hudHpTxt?.setText(`HP ${hp}`)
+    if (this._hudHpBar) {
+      this._hudHpBar.width = (hp / GS.maxHealth) * 90
+      this._hudHpBar.setFillStyle(hp < 30 ? 0xff0000 : hp < 60 ? 0xff8800 : 0xff3333)
+    }
     this._hudScore?.setText(`SCORE: ${GS.score}`)
-    this._hudKills?.setText(`K ${this._killedEnemies}`)
-    this._hudCgpa?.setText(`CGPA: ${GS.cgpa.toFixed(1)}`)
+    this._hudCgpa?.setText(`CGPA ${GS.cgpa.toFixed(1)}`)
+    this._hudKills?.setText(`K: ${this._killedThisLevel}`)
+
+    if (this._powerupActive) {
+      const remain = Math.ceil(this._powerupEndTime - this.time.now)
+      this._hudPowerup?.setText(`⚡ ${this._powerupType?.toUpperCase()} ${(remain / 1000).toFixed(1)}s`)
+    } else {
+      this._hudPowerup?.setText('')
+    }
   }
 
-  // ── mobile controls ───────────────────────────────────────────────────────
-  _buildMobileControls() {
-    const w       = this.scale.width
-    const h       = this.scale.height
-    const btnSize = Math.min(w * 0.12, 40)
+  // ── Mobile controls ───────────────────────────────────────────────────────
+  _buildMobileControls(W, H) {
+    const bw = Math.min(W * 0.12, 52)
+    const bh = Math.min(H * 0.16, 44)
+    const gap = bw * 0.22
+    const pad = 10
+    const by  = H - bh - pad
 
-    this._joyBase = this.add.circle(w * 0.15, h * 0.82, btnSize * 0.9, 0xffffff, 0.08).setScrollFactor(0).setDepth(100)
-    this._joyDot  = this.add.circle(w * 0.15, h * 0.82, btnSize * 0.35, 0xffffff, 0.25).setScrollFactor(0).setDepth(101)
+    // Left cluster
+    const lx = pad
+    const rx = pad + bw + gap
 
-    const jumpBtn   = this._makeBtn(w * 0.85, h * 0.72, btnSize, 'UP',  0x2244ff)
-    const attackBtn = this._makeBtn(w * 0.72, h * 0.82, btnSize, 'ATK', 0xff3333)
+    // Right cluster
+    const jx = W - bw * 2 - gap - pad
+    const ax = W - bw - pad
 
-    this.input.on('pointerdown', (p) => {
-      if (p.x < w * 0.55 && p.y > h * 0.55) {
-        this._joystick.active = true
-        this._joystick.startX = p.x
-        this._joystick.curX   = p.x
-        this._joyBase.setPosition(p.x, p.y).setAlpha(0.2)
-        this._joyDot.setPosition(p.x, p.y)
-      }
-    })
+    this._btnLeft   = { x: lx, y: by, w: bw, h: bh }
+    this._btnRight  = { x: rx, y: by, w: bw, h: bh }
+    this._btnJump   = { x: jx, y: by, w: bw, h: bh }
+    this._btnAttack = { x: ax, y: by, w: bw, h: bh }
 
-    this.input.on('pointermove', (p) => {
-      if (this._joystick.active) {
-        this._joystick.curX = p.x
-        const dx = Phaser.Math.Clamp(p.x - this._joystick.startX, -30, 30)
-        this._joyDot.setPosition(this._joystick.startX + dx, p.y)
-      }
-    })
-
-    this.input.on('pointerup', (p) => {
-      if (p.x < this.scale.width * 0.55) {
-        this._joystick.active = false
-        this._joystick.curX   = this._joystick.startX
-        this._joyBase.setAlpha(0.08)
-        this._joyDot.setPosition(w * 0.15, h * 0.82)
-      }
-    })
-
-    jumpBtn.on('pointerdown',   () => this._tryJump())
-    attackBtn.on('pointerdown', () => this._tryAttack())
+    this._drawMobileButtons(W, H)
+    this._setupTouchInput(W, H)
   }
 
-  _makeBtn(x, y, size, label, bgColor) {
-    const btn = this.add.circle(x, y, size, bgColor, 0.35).setScrollFactor(0).setDepth(100).setInteractive()
-    this.add.text(x, y, label, {
-      fontFamily: '"Nunito", sans-serif', fontSize: `${size * 0.36}px`, color: '#ffffff',
-    }).setScrollFactor(0).setDepth(101).setOrigin(0.5)
-    const g = this.add.graphics().setScrollFactor(0).setDepth(100)
-    g.lineStyle(1.5, bgColor, 0.6)
-    g.strokeCircle(x, y, size)
-    return btn
+  _drawMobileButtons(W, H) {
+    // D-pad BG disc left
+    const lBase = this.add.circle(
+      this._btnLeft.x + this._btnLeft.w + (this._btnRight.x - this._btnLeft.x - this._btnLeft.w) / 2,
+      this._btnLeft.y + this._btnLeft.h / 2,
+      this._btnLeft.w * 1.1, 0x000000, 0.2
+    ).setScrollFactor(0).setDepth(98)
+
+    const makeBtn = (rect, label, bgColor) => {
+      const btn = this.add.graphics().setScrollFactor(0).setDepth(99)
+      btn.fillStyle(bgColor, 0.40)
+      btn.fillRoundedRect(rect.x, rect.y, rect.w, rect.h, 8)
+      btn.lineStyle(1.5, bgColor, 0.7)
+      btn.strokeRoundedRect(rect.x, rect.y, rect.w, rect.h, 8)
+      this.add.text(
+        rect.x + rect.w / 2,
+        rect.y + rect.h / 2,
+        label, {
+          fontFamily: '"Nunito", sans-serif',
+          fontSize: `${Math.floor(rect.w * 0.40)}px`,
+          color: '#ffffff',
+        }
+      ).setScrollFactor(0).setDepth(100).setOrigin(0.5)
+      return btn
+    }
+
+    this._gfxLeft   = makeBtn(this._btnLeft,   '◀', 0x4466ff)
+    this._gfxRight  = makeBtn(this._btnRight,  '▶', 0x4466ff)
+    this._gfxJump   = makeBtn(this._btnJump,   '▲', 0x44cc88)
+    this._gfxAttack = makeBtn(this._btnAttack, '⚔', 0xff4433)
   }
 
-  // ── update ────────────────────────────────────────────────────────────────
-  update(time) {
-    if (!this.player?.active || !this.player.body || this._levelComplete) return
+  _setupTouchInput(W, H) {
+    const inRect = (px, py, r) => px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h
 
+    const processPointers = () => {
+      this._touchLeft   = false
+      this._touchRight  = false
+      this._touchJump   = false
+      this._touchAttack = false
+      this.input.manager.pointers.forEach(ptr => {
+        if (!ptr.isDown) return
+        const px = ptr.x, py = ptr.y
+        if (inRect(px, py, this._btnLeft))   this._touchLeft   = true
+        if (inRect(px, py, this._btnRight))  this._touchRight  = true
+        if (inRect(px, py, this._btnJump))   this._touchJump   = true
+        if (inRect(px, py, this._btnAttack)) this._touchAttack = true
+      })
+    }
+
+    this.input.on('pointerdown',  processPointers)
+    this.input.on('pointermove',  processPointers)
+    this.input.on('pointerup',    processPointers)
+  }
+
+  // ── Update loop ───────────────────────────────────────────────────────────
+  update(time, delta) {
+    if (!this.player?.active || !this.player.body) return
+    if (this._levelComplete) return
+
+    // Parallax BG scroll
+    if (this._bgTile) this._bgTile.tilePositionX = this.cameras.main.scrollX * 0.07
+
+    this._updatePlayer(time, delta)
+    this._updateEnemies(time)
+    this._updateBossProjectiles()
+    this._updatePickupLabels()
+    this._updateHUD()
+    this._checkLevelEnd(time)
+  }
+
+  _updatePlayer(time, delta) {
     const onGround = this.player.body.blocked.down
     if (onGround) this._jumpCount = 0
 
-    // Scroll background parallax
-    if (this._bgTile) this._bgTile.tilePositionX = this.cameras.main.scrollX * 0.08
+    // Speed modifier
+    let speed = PLAYER_SPEED
+    if (this._powerupActive && this._powerupType === 'coffee') speed *= 1.9
 
-    // ── movement ──────────────────────────────────────────────────────────
-    const speed = PLAYER_SPEED * (this._powerupActive ? 1.5 : 1)
-    let moveX   = 0
+    // Horizontal movement
+    const goLeft  = this.cursors.left.isDown  || this.wasd.left.isDown  || this._touchLeft
+    const goRight = this.cursors.right.isDown || this.wasd.right.isDown || this._touchRight
 
-    if (this.cursors.left.isDown  || this.wasd.left.isDown)  moveX = -1
-    if (this.cursors.right.isDown || this.wasd.right.isDown) moveX =  1
-
-    // Joystick override
-    if (this._joystick.active) {
-      const dx = this._joystick.curX - this._joystick.startX
-      if (Math.abs(dx) > 8) moveX = dx > 0 ? 1 : -1
+    if (goLeft)       this.player.setVelocityX(-speed)
+    else if (goRight) this.player.setVelocityX(speed)
+    else {
+      const vx = this.player.body.velocity.x
+      this.player.setVelocityX(vx * 0.78)  // smooth stop
     }
 
-    // FIX: removed the old "else moveX = 0.3" auto-drift bug
-    this.player.setVelocityX(moveX * speed)
+    // Facing
+    if (goLeft)       this.player.setFlipX(true)
+    else if (goRight) this.player.setFlipX(false)
 
-    if (moveX < 0)      this.player.setFlipX(true)
-    else if (moveX > 0) this.player.setFlipX(false)
-
+    // Texture
     this.player.setTexture(onGround ? 'player' : 'player_jump')
 
-    // ── jump ──────────────────────────────────────────────────────────────
-    if (
-      Phaser.Input.Keyboard.JustDown(this.cursors.up)    ||
-      Phaser.Input.Keyboard.JustDown(this.cursors.space)  ||
-      Phaser.Input.Keyboard.JustDown(this.wasd.up)
-    ) {
-      this._tryJump()
+    // Jump
+    const wantJump = Phaser.Input.Keyboard.JustDown(this.cursors.up)
+                  || Phaser.Input.Keyboard.JustDown(this.cursors.space)
+                  || Phaser.Input.Keyboard.JustDown(this.wasd.up)
+                  || this._touchJump
+
+    if (wantJump && this._jumpCount < 2) {
+      this.player.setVelocityY(JUMP_VEL)
+      this._jumpCount++
+      // Jump dust
+      this._particles.setPosition(this.player.x, this.player.y + this.player.height / 2)
+      this._particles.setParticleTint(0xffffff)
+      this._particles.explode(8)
     }
 
-    // ── attack ────────────────────────────────────────────────────────────
-    if (
-      Phaser.Input.Keyboard.JustDown(this.attackKey)  ||
-      Phaser.Input.Keyboard.JustDown(this.attackKey2)
-    ) {
-      this._tryAttack()
+    // Attack
+    const wantAttack = Phaser.Input.Keyboard.JustDown(this.atkKey)
+                    || Phaser.Input.Keyboard.JustDown(this.atkKey2)
+                    || this._touchAttack
+
+    if (wantAttack && time - (this._lastAttackTime || 0) > 280) {
+      this._lastAttackTime = time
+      this._doAttack(time)
     }
 
-    // ── enemy AI ──────────────────────────────────────────────────────────
-    this.enemies.getChildren().forEach((e) => {
-      if (!e.active) return
-      const lbl = e.getData('lbl')
-      if (lbl) lbl.setPosition(e.x, e.y - e.height * 0.7 - 6)
-
-      if (e.getData('isBoss')) {
-        this._updateBoss(e, time)
-      } else {
-        const dx  = this.player.x - e.x
-        const spd = e.getData('speed') || 60
-        if (Math.abs(dx) < 400) e.setVelocityX(dx > 0 ? spd : -spd)
-        else e.setVelocityX(0)
-        // Rare jump
-        if (e.body.blocked.down && Phaser.Math.Between(0, 200) === 0)
-          e.setVelocityY(-300 - Math.random() * 100)
-      }
-    })
-
-    // ── powerup timer ─────────────────────────────────────────────────────
+    // Powerup expiry
     if (this._powerupActive && time > this._powerupEndTime) {
       this._powerupActive = false
-      this._hudPowerup?.setText('')
-      this._showFloatingText(this.player.x, this.player.y - 30, 'powerup ended', '#888888')
-    }
-
-    // ── boss HP bar ───────────────────────────────────────────────────────
-    if (this.year === 3 && this._bossSpawned && this._boss?.active) {
-      const hp = this._boss.getData('hp')
-      if (this._bossBar) this._bossBar.setWidth(Math.max(0, (hp / 30) * 198))
-    }
-
-    // ── level end trigger ─────────────────────────────────────────────────
-    if (!this._transitioning && this.player.x > LEVEL_WIDTH - 150) {
-      if (this.year === 3 && this._boss?.active) {
-        this._showFloatingText(this.player.x, this.player.y - 40, 'defeat the boss first!', '#ff4444')
-      } else {
-        this._completeLevel()
-      }
-    }
-
-    this._updateHUD()
-  }
-
-  // ── boss AI ───────────────────────────────────────────────────────────────
-  _updateBoss(boss, time) {
-    const hp    = boss.getData('hp')
-    const maxHp = boss.getData('maxHp') || 30
-    const frac  = hp / maxHp
-    const phase = frac > 0.65 ? 1 : frac > 0.35 ? 2 : 3
-
-    boss.setData('phase', phase)
-
-    const phaseTints = [0xff0000, 0xff6600, 0xffcc00]
-    boss.setTint(phaseTints[phase - 1])
-    if (this._bossPhaseText) this._bossPhaseText.setText(`PHASE ${phase}`)
-
-    const speeds = [70, 100, 140]
-    const dx     = this.player.x - boss.x
-    if (Math.abs(dx) > 60) boss.setVelocityX(dx > 0 ? speeds[phase - 1] : -speeds[phase - 1])
-    else boss.setVelocityX(0)
-
-    if (boss.body.blocked.down && Phaser.Math.Between(0, 120) === 0) boss.setVelocityY(-380)
-
-    const intervals = [3000, 1800, 900]
-    const lastShot  = boss.getData('lastShot') || 0
-    if (time - lastShot > intervals[phase - 1]) {
-      boss.setData('lastShot', time)
-      this._bossShoot(boss, phase)
+      this._powerupType   = null
+      this._showFloat(this.player.x, this.player.y - 35, 'powerup expired', '#888888')
     }
   }
 
-  _bossShoot(boss, phase) {
-    const dir = this.player.x - boss.x > 0 ? 1 : -1
+  _doAttack(time) {
+    const pal   = PALETTES[this.year]
+    const range = this._powerupActive && this._powerupType === 'hack' ? 140 : 85
+    const dir   = this.player.flipX ? -1 : 1
 
-    const shoot = (vx, vy) => {
-      // Use bossProjs group so the existing overlap fires correctly
-      const p = this.bossProjs.create(boss.x + dir * 20, boss.y - 20, 'boss_proj')
-      if (!p) return
-      p.setVelocity(vx, vy)
-      p.body.allowGravity = false
-      p.setDepth(9)
-      this.time.delayedCall(4000, () => { if (p?.active) p.destroy() })
-    }
-
-    if (phase === 1) {
-      shoot(dir * 240, -30)
-    } else if (phase === 2) {
-      shoot(dir * 260, -20)
-      shoot(dir * 200, -120)
-    } else {
-      shoot(dir * 280, -10)
-      shoot(dir * 220, -90)
-      shoot(dir * 150, -180)
-    }
-  }
-
-  // ── actions ───────────────────────────────────────────────────────────────
-  _tryJump() {
-    if (this._jumpCount >= 2) return
-    this.player.setVelocityY(JUMP_VEL)
-    this._jumpCount++
-    const p = this.add.circle(this.player.x, this.player.y + 12, 8, 0xffffff, 0.3)
-    this.tweens.add({ targets: p, scaleX: 3, scaleY: 0.5, alpha: 0, duration: 300, onComplete: () => p.destroy() })
-  }
-
-  _tryAttack() {
-    const range   = this._powerupActive ? 120 : 80
-    const dmgMult = this._powerupType === 'offer' ? 4 : this._powerupActive ? 2 : 1
-
+    // Slash VFX
     const slash = this.add.graphics().setDepth(15)
-    slash.lineStyle(3, 0xffffff, 0.8)
-    const dir = this.player.flipX ? -1 : 1
-    slash.lineBetween(this.player.x, this.player.y - 10, this.player.x + dir * range, this.player.y + 10)
-    this.tweens.add({ targets: slash, alpha: 0, duration: 150, onComplete: () => slash.destroy() })
+    slash.lineStyle(3.5, pal.accent, 0.9)
+    slash.lineBetween(
+      this.player.x, this.player.y - 8,
+      this.player.x + dir * range, this.player.y + 12
+    )
+    slash.lineStyle(1.5, 0xffffff, 0.5)
+    slash.lineBetween(
+      this.player.x + dir * 10, this.player.y - 5,
+      this.player.x + dir * range * 0.9, this.player.y + 8
+    )
+    this.tweens.add({ targets: slash, alpha: 0, duration: 140, onComplete: () => slash.destroy() })
+
+    // Particle burst from fist
+    this._particles.setPosition(this.player.x + dir * 30, this.player.y)
+    this._particles.setParticleTint(pal.accent)
+    this._particles.explode(10)
 
     let hitAny = false
-    this.enemies.getChildren().forEach((e) => {
-      if (!e.active) return
+    this.enemies.getChildren().forEach(e => {
+      if (!e.active || e.getData('hp') <= 0) return
       const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y)
-      if (dist < range) {
-        hitAny         = true
-        const isBoss   = e.getData('isBoss')
-        const dmg      = isBoss ? dmgMult : dmgMult * (1 + Math.random())
-        const newHp    = (e.getData('hp') || 1) - Math.ceil(dmg)
-        e.setData('hp', newHp)
-        this._showFloatingText(e.x, e.y - 20, `-${Math.ceil(dmg)}`, '#ff5555')
-        e.setTint(0xffffff)
-        this.time.delayedCall(100, () => { if (e.active) e.clearTint() })
-        e.setVelocityX(dir * 200)
-        if (newHp <= 0) this._killEnemy(e)
+      const inArc = Math.sign(e.x - this.player.x) === dir || dist < 40
+      if (dist > range + e.width / 2 || !inArc) return
+
+      hitAny = true
+      const isBoss = e.getData('isBoss')
+      const dmg    = isBoss ? 1 : Phaser.Math.Between(1, 2)
+      const newHp  = e.getData('hp') - dmg
+      e.setData('hp', newHp)
+
+      // Hit flash
+      e.setTint(0xffffff)
+      this.time.delayedCall(90, () => { if (e.active) e.clearTint() })
+      e.setVelocityX(dir * 240)
+
+      this._showFloat(e.x, e.y - 25, `-${dmg}`, '#ff5555')
+      GS.score += 10
+
+      // Update HP bar
+      if (!isBoss) {
+        const maxHp = e.getData('maxHp')
+        const frac  = Math.max(0, newHp / maxHp)
+        const barFg = e.getData('barFg')
+        if (barFg) barFg.width = (e.width + 4) * frac
+      } else {
+        if (this._bossHpBar) {
+          const frac = Math.max(0, newHp / BOSS_CFG.hp)
+          this._bossHpBar.width = 216 * frac
+        }
       }
+
+      if (newHp <= 0) this._killEnemy(e)
     })
 
-    if (!hitAny) this._showFloatingText(this.player.x + dir * 40, this.player.y - 10, 'miss!', '#666688')
+    if (!hitAny) this._showFloat(this.player.x + dir * 50, this.player.y - 10, 'miss!', '#556688')
   }
 
-  // ── kill / death ──────────────────────────────────────────────────────────
   _killEnemy(e) {
     const isBoss = e.getData('isBoss')
-    const lbl    = e.getData('lbl')
-    if (lbl) lbl.destroy()
+    const pal    = PALETTES[this.year]
 
-    // Particle burst
-    const colors = [0xff8800, 0xffcc00, 0xff4444, 0xffffff]
+    // Destroy HUD elements
+    ;['barBg', 'barFg', 'lbl'].forEach(k => {
+      const obj = e.getData(k)
+      if (obj) obj.destroy()
+    })
+
+    // Explosion particles
+    this._particles.setPosition(e.x, e.y)
+    this._particles.setParticleTint(pal.particleA)
+    this._particles.explode(22)
+
+    // Coin burst VFX
+    const colors = [0xff8800, 0xffcc00, 0xff4444, 0xffffff, 0x44ffcc]
     for (let i = 0; i < 10; i++) {
-      const c  = Phaser.Utils.Array.GetRandom(colors)
-      const px = e.x + Phaser.Math.Between(-15, 15)
-      const py = e.y + Phaser.Math.Between(-15, 15)
-      const d  = this.add.circle(px, py, Phaser.Math.Between(2, 5), c, 1).setDepth(20)
+      const dot = this.add.circle(e.x, e.y, Phaser.Math.Between(2, 6), Phaser.Utils.Array.GetRandom(colors)).setDepth(20)
       this.tweens.add({
-        targets: d,
-        x: px + Phaser.Math.Between(-50, 50),
-        y: py - Phaser.Math.Between(20, 60),
-        alpha: 0, duration: Phaser.Math.Between(400, 700),
-        onComplete: () => d.destroy(),
+        targets: dot,
+        x: e.x + Phaser.Math.Between(-70, 70),
+        y: e.y - Phaser.Math.Between(20, 70),
+        alpha: 0, duration: Phaser.Math.Between(350, 650),
+        onComplete: () => dot.destroy()
       })
     }
 
     if (isBoss) {
       this._onBossDefeated()
     } else {
+      const pts = e.getData('score') || 50
+      this._showFloat(e.x, e.y - 35, `+${pts} pts`, '#ffcc44')
+      GS.score += pts
+      GS.totalKills++
+      this._killedThisLevel++
+      GS.cgpa = Math.min(10.0, GS.cgpa + 0.05)
       e.destroy()
-      this._killedEnemies++
-      GS.score += 50 + this.year * 25
-      GS.totalEnemiesKilled++
-      this._showFloatingText(e.x, e.y - 30, `+${50 + this.year * 25} pts`, '#ffcc44')
     }
   }
 
   _onBossDefeated() {
-    if (this._levelComplete) return   // guard against double-fire
+    if (this._levelComplete) return
     this._levelComplete = true
 
-    this._boss?.destroy()
-    this._boss = null
-    if (this._bossBar) this._bossBar.setWidth(0)
+    this._bossEntity?.destroy()
+    this._bossEntity = null
+    if (this._bossHpBar) this._bossHpBar.setDisplaySize(0, 8)
 
-    this.cameras.main.shake(800, 0.03)
-    this.cameras.main.flash(1000, 255, 200, 50)
-
-    this._killedEnemies++
-    GS.totalEnemiesKilled++
     GS.score += 500
+    GS.totalKills++
+    this._killedThisLevel++
 
+    this.cameras.main.shake(900, 0.03)
+    this.cameras.main.flash(1100, 255, 180, 50)
+
+    const W = this.scale.width, H = this.scale.height
     const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0).setScrollFactor(0).setDepth(90)
-    this.tweens.add({ targets: overlay, alpha: 0.6, duration: 800 })
+    this.tweens.add({ targets: overlay, alpha: 0.60, duration: 800 })
 
-    this.add.text(W / 2, H / 2 - 30, 'BOSS DEFEATED!', {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 18)}px`,
-      color:      '#ffcc00', stroke: '#884400', strokeThickness: 3,
+    this.add.text(W / 2, H / 2 - 30, '🎓 BOSS DEFEATED!', {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 16)}px`,
+      color: '#ffcc00', stroke: '#884400', strokeThickness: 3,
     }).setScrollFactor(0).setDepth(99).setOrigin(0.5)
 
-    this.add.text(W / 2, H / 2 + 10, '"PLACEMENTS CONQUERED"\n+500 points!', {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 40)}px`,
-      color:      '#ffffff', align: 'center',
+    this.add.text(W / 2, H / 2 + 12, '"Placements Conquered"\n+500 score!', {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 38)}px`,
+      color: '#ffffff', align: 'center',
     }).setScrollFactor(0).setDepth(99).setOrigin(0.5)
 
-    this.time.delayedCall(3000, () => this._goToSILab())
+    this.time.delayedCall(3200, () => this._finishGame())
   }
 
-  // ── collision handlers ────────────────────────────────────────────────────
-  _onEnemyHit(player, enemy) {
-    if (!enemy.active)               return
-    if (enemy.getData('isBoss'))     return   // boss does ranged damage only
+  // ── Enemy AI ──────────────────────────────────────────────────────────────
+  _updateEnemies(time) {
+    this.enemies.getChildren().forEach(e => {
+      if (!e.active || e.getData('hp') <= 0) return
+
+      // Sync UI elements
+      const barBg = e.getData('barBg'), barFg = e.getData('barFg'), lbl = e.getData('lbl')
+      if (barBg) barBg.setPosition(e.x, e.y - e.height / 2 - 8)
+      if (barFg) barFg.setPosition(e.x - (e.width + 4) / 2, e.y - e.height / 2 - 8)
+      if (lbl)   lbl.setPosition(e.x, e.y - e.height / 2 - 18)
+
+      if (e.getData('isBoss')) {
+        this._updateBoss(e, time)
+      } else {
+        const dx  = this.player.x - e.x
+        const spd = e.getData('speed') || 60
+
+        if (Math.abs(dx) < 450) e.setVelocityX(dx > 0 ? spd : -spd)
+        else e.setVelocityX(0)
+
+        // Occasional jump
+        let jt = e.getData('jumpTimer') - this.game.loop.delta / 1000
+        e.setData('jumpTimer', jt)
+        if (jt <= 0 && e.body.blocked.down) {
+          e.setVelocityY(-320 - Math.random() * 80)
+          e.setData('jumpTimer', Phaser.Math.FloatBetween(1.5, 3.5))
+        }
+      }
+    })
+  }
+
+  _updateBoss(boss, time) {
+    const hp    = boss.getData('hp')
+    const frac  = hp / BOSS_CFG.hp
+    const phase = frac > 0.65 ? 0 : frac > 0.35 ? 1 : 2
+    const ph    = BOSS_CFG.phases[phase]
+
+    // Phase change effects
+    if (phase !== this._bossPhase) {
+      this._bossPhase = phase
+      this.cameras.main.shake(400, 0.018)
+      this.cameras.main.flash(500, 255, 100, 0)
+      boss.setTint(ph.color)
+      this._bossPhaseLabel?.setText(`PHASE ${phase + 1}`)
+      this._particles.setPosition(boss.x, boss.y)
+      this._particles.setParticleTint(ph.color)
+      this._particles.explode(30)
+    }
+
+    boss.setTint(ph.color)
+
+    // Move toward player
+    const dx = this.player.x - boss.x
+    if (Math.abs(dx) > 70) boss.setVelocityX(dx > 0 ? ph.speed : -ph.speed)
+    else boss.setVelocityX(0)
+
+    // Boss jump
+    let jt = boss.getData('jumpTimer') - this.game.loop.delta / 1000
+    boss.setData('jumpTimer', jt)
+    if (jt <= 0 && boss.body.blocked.down) {
+      boss.setVelocityY(-400)
+      boss.setData('jumpTimer', Phaser.Math.FloatBetween(1.2, 2.5))
+    }
+
+    // Shoot
+    const lastShot = boss.getData('lastShot') || 0
+    if (time - lastShot > ph.shootInterval) {
+      boss.setData('lastShot', time)
+      this._bossShoot(boss, phase)
+    }
+
+    // Update HP bar
+    if (this._bossHpBar) {
+      const pct = Math.max(0, hp / BOSS_CFG.hp)
+      this._bossHpBar.width = 216 * pct
+    }
+  }
+
+  _bossShoot(boss, phase) {
+    const dir = this.player.x < boss.x ? -1 : 1
+    const ph  = BOSS_CFG.phases[phase]
+    const spd = 250
+
+    const shoot = (vx, vy) => {
+      const p = this.bossProjs.create(boss.x + dir * 45, boss.y - 10, 'boss_proj')
+      if (!p) return
+      p.setVelocity(vx, vy)
+      p.body.allowGravity = false
+      p.setDepth(9)
+      this.time.delayedCall(5000, () => { if (p?.active) p.destroy() })
+    }
+
+    // Phase 0: single
+    shoot(dir * spd, -20)
+    // Phase 1: arc
+    if (phase >= 1) shoot(dir * (spd - 60), -130)
+    // Phase 2: fan
+    if (phase >= 2) shoot(dir * (spd - 120), -220)
+  }
+
+  _updateBossProjectiles() {
+    this.bossProjs.getChildren().forEach(p => {
+      if (!p.active) return
+      // Off-screen cleanup
+      if (p.y > this.scale.height + 50) p.destroy()
+    })
+  }
+
+  _updatePickupLabels() {
+    // nothing to do — labels are positioned at spawn
+  }
+
+  // ── Collision callbacks ────────────────────────────────────────────────────
+  _onTouchEnemy(player, enemy) {
+    if (!enemy.active || enemy.getData('hp') <= 0) return
+    if (enemy.getData('isBoss')) return   // boss uses ranged only
     const now = this.time.now
     if (now - this._lastDmgTime < DMG_COOLDOWN) return
     this._lastDmgTime = now
-    this._takeDamage(10 + this.year * 3)
+    this._takeDamage(10 + this.year * 2)
     const dir = player.x < enemy.x ? -1 : 1
-    player.setVelocityX(dir * 300).setVelocityY(-150)
+    player.setVelocityX(dir * 320).setVelocityY(-170)
   }
 
   _onPickup(player, pickup) {
     if (!pickup?.active) return
-    const isPowerup  = pickup.getData('isPowerup')
-    const pickupKey  = pickup.getData('pickupKey')
     pickup.destroy()
 
+    const isPowerup = pickup.getData('isPowerup')
     if (isPowerup) {
-      const pu             = POWERUPS[this.year]
+      const pu = pickup.getData('puCfg')
       this._powerupActive  = true
       this._powerupEndTime = this.time.now + pu.duration
       this._powerupType    = pu.type
       GS.powerupType       = pu.type
-      this._showFloatingText(player.x, player.y - 35, pu.label, '#ffff44', 12)
-      this._hudPowerup?.setText(pu.label)
-      GS.score += 200
-      this.cameras.main.flash(300, 255, 200, 0)
+      GS.score            += 200
+      this._showFloat(player.x, player.y - 40, `${pu.label}!`, '#ffff44', 12)
+      this._showFloat(player.x, player.y - 58, pu.desc, '#ffdd88', 9)
+      this.cameras.main.flash(300, 255, 210, 50)
+      this._particles.setPosition(player.x, player.y)
+      this._particles.setParticleTint(pu.color)
+      this._particles.explode(20)
     } else {
-      if (pickupKey === 'pickup_hp') {
-        const heal = 25
-        GS.health  = Math.min(GS.maxHealth, GS.health + heal)
-        this._showFloatingText(player.x, player.y - 35, `+${heal} HP`, '#44ff88', 12)
+      const key = pickup.getData('pickupKey')
+      if (key === 'pickup_hp') {
+        GS.health = Math.min(GS.maxHealth, GS.health + 25)
+        this._showFloat(player.x, player.y - 35, '+25 HP', '#44ff88', 12)
+        this._particles.setPosition(player.x, player.y)
+        this._particles.setParticleTint(0x44ff88)
+        this._particles.explode(10)
       } else {
         GS.score += 100
-        this._showFloatingText(player.x, player.y - 35, '+100 pts', '#ffcc44', 12)
+        this._showFloat(player.x, player.y - 35, '+100 pts', '#ffcc44', 12)
       }
-      this.cameras.main.flash(150, 100, 255, 100)
+      this.cameras.main.flash(120, 80, 255, 120)
     }
   }
 
-  _onProjHit(_player, proj) {
+  _onProjHit(player, proj) {
     if (!proj?.active) return
     const now = this.time.now
     if (now - this._lastDmgTime < DMG_COOLDOWN) return
-    // Offer letter powerup = immune to projectiles
     if (this._powerupActive && this._powerupType === 'offer') {
       proj.destroy()
+      this._showFloat(player.x, player.y - 30, 'BLOCKED!', '#ffcc00')
       return
     }
     this._lastDmgTime = now
     proj.destroy()
-    this._takeDamage(15 + this.year * 5)
+    this._takeDamage(14 + this.year * 4)
+    this._particles.setPosition(player.x, player.y)
+    this._particles.setParticleTint(0xff4444)
+    this._particles.explode(12)
   }
 
-  // ── damage ────────────────────────────────────────────────────────────────
+  // ── Damage ────────────────────────────────────────────────────────────────
   _takeDamage(amount) {
-    if (this._powerupActive && this._powerupType === 'chai') amount = Math.floor(amount * 0.4)
-    GS.health = Math.max(1, GS.health - amount)
-    GS.cgpa   = Math.max(4.0, GS.cgpa - 0.05)
+    if (this._powerupActive && this._powerupType === 'chai') amount = Math.floor(amount * 0.40)
+    GS.health = Math.max(0, GS.health - amount)
+    GS.cgpa   = Math.max(4.0, GS.cgpa - 0.04)
 
-    this._showFloatingText(this.player.x, this.player.y - 25, `-${amount}`, '#ff4444')
-    this.cameras.main.shake(120, 0.015)
-    this.cameras.main.flash(80, 255, 30, 30)
+    this._showFloat(this.player.x, this.player.y - 28, `-${amount}`, '#ff4444')
+    this.cameras.main.shake(110, 0.014)
+    this.cameras.main.flash(70, 255, 30, 30)
+
     this.tweens.add({
-      targets: this.player, alpha: 0.2,
-      duration: 80, repeat: 5, yoyo: true,
+      targets: this.player, alpha: 0.15,
+      duration: 70, repeat: 5, yoyo: true,
       onComplete: () => { if (this.player?.active) this.player.setAlpha(1) }
     })
 
-    if (GS.health <= 5 && !this._lowHpWarn) {
-      this._lowHpWarn = this.add.text(this.scale.width / 2, this.scale.height / 2 - 20, 'LOW HP', {
-        fontFamily: '"Nunito", sans-serif',
-        fontSize:   `${Math.floor(this.scale.width / 25)}px`,
-        color:      '#ff0000',
-      }).setScrollFactor(0).setDepth(80).setOrigin(0.5)
-      this.tweens.add({ targets: this._lowHpWarn, alpha: 0.1, duration: 300, yoyo: true, repeat: -1 })
+    // Low HP warning
+    if (GS.health <= 20 && !this._lowHpWarning) {
+      this._lowHpWarning = this.add.text(
+        this.scale.width / 2, this.scale.height / 2 - 20,
+        '⚠ LOW HP ⚠', {
+          fontFamily: '"Nunito", sans-serif',
+          fontSize: `${Math.floor(this.scale.width / 22)}px`,
+          color: '#ff0000',
+        }
+      ).setScrollFactor(0).setDepth(80).setOrigin(0.5)
+      this.tweens.add({ targets: this._lowHpWarning, alpha: 0.1, duration: 280, yoyo: true, repeat: -1 })
+    }
+    if (GS.health > 20 && this._lowHpWarning) {
+      this._lowHpWarning.destroy()
+      this._lowHpWarning = null
+    }
+
+    // Death
+    if (GS.health <= 0) {
+      this._levelComplete = true
+      this.cameras.main.shake(500, 0.04)
+      this.cameras.main.fadeOut(1200)
+      this.time.delayedCall(1400, () => {
+        // Restart with reset
+        this.scene.start('GameScene', { year: 0, resetState: true })
+      })
     }
   }
 
-  // ── level complete ────────────────────────────────────────────────────────
-  _completeLevel() {
+  // ── Level end ─────────────────────────────────────────────────────────────
+  _checkLevelEnd(time) {
+    if (this._transitioning || !this.player) return
+    if (this.player.x > LEVEL_WIDTH - 120) {
+      if (this.year === 2 && this._bossEntity?.active) {
+        this._showFloat(this.player.x, this.player.y - 40, 'Defeat the boss first!', '#ff4444')
+        return
+      }
+      this._completeYear()
+    }
+  }
+
+  _completeYear() {
     if (this._transitioning) return
     this._transitioning = true
     this._levelComplete = true
 
-    GS.score += 300 + this._killedEnemies * 20
+    GS.score += 300 + this._killedThisLevel * 20
     GS.cgpa   = Math.min(10.0, GS.cgpa + 0.3)
+    GS.year   = this.year + 1
 
-    this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.5).setScrollFactor(0).setDepth(90)
-    const yearNames = ['YEAR 1 CLEARED!', 'YEAR 2 CLEARED!', 'YEAR 3 CLEARED!', 'YEAR 4 CLEARED!']
+    const W = this.scale.width, H = this.scale.height
+    this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.55).setScrollFactor(0).setDepth(90)
 
-    this.add.text(W / 2, H / 2 - 30, yearNames[this.year], {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 22)}px`,
-      color:      '#ffcc44',
+    const yearNames = ['YEAR 1 CLEARED!', 'YEAR 2 CLEARED!', 'YEAR 3 + BOSS CLEARED!']
+    this.add.text(W / 2, H / 2 - 25, yearNames[this.year] || 'CLEARED!', {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 20)}px`, color: '#ffcc44',
     }).setScrollFactor(0).setDepth(99).setOrigin(0.5)
 
-    this.add.text(W / 2, H / 2 + 10, `score: ${GS.score}   cgpa: ${GS.cgpa.toFixed(1)}`, {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize:   `${Math.floor(W / 45)}px`,
-      color:      '#aabbff',
+    this.add.text(W / 2, H / 2 + 14, `score: ${GS.score}   cgpa: ${GS.cgpa.toFixed(1)}`, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 42)}px`, color: '#aabbff',
     }).setScrollFactor(0).setDepth(99).setOrigin(0.5)
 
-    this.time.delayedCall(2500, () => {
-      if (this.year < 3) {
+    this.time.delayedCall(2600, () => {
+      if (this.year < 2) {
         this.scene.pause('GameScene')
-        this.scene.launch('BTechTransition', { year: this.year + 1, score: GS.score })
+        this.scene.launch('YearTransition', { year: this.year + 1, score: GS.score })
       } else {
-        this._goToSILab()
+        this._finishGame()
       }
     })
   }
 
-  _goToSILab() {
+  _finishGame() {
     this.scene.stop()
-    this.scene.start('BTechSILab')
+    this.scene.start('BTechEnding')
   }
 
-  // ── utils ─────────────────────────────────────────────────────────────────
-  _showFloatingText(x, y, text, color = '#ffffff', size = 8) {
-    const t = this.add.text(x, y, text, {
-      fontFamily: '"Nunito", sans-serif', fontSize: `${size}px`, color,
+  // ── Floating text ─────────────────────────────────────────────────────────
+  _showFloat(x, y, text, color = '#ffffff', size) {
+    const W   = this.scale.width
+    const sz  = size ?? Math.floor(W / 46)
+    const t   = this.add.text(x, y, text, {
+      fontFamily: '"Nunito", sans-serif', fontSize: `${sz}px`, color,
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5).setDepth(30)
     this.tweens.add({
-      targets: t, y: y - 30, alpha: 0, duration: 900, ease: 'Power2',
+      targets: t, y: y - 36, alpha: 0, duration: 850, ease: 'Power2',
       onComplete: () => t.destroy(),
     })
   }
