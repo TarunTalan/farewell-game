@@ -1,4 +1,11 @@
 import Phaser from 'phaser'
+import { W, H, GROUND_Y, LEVEL_WIDTH, PLAYER_SPEED, JUMP_VEL, DMG_COOLDOWN } from '../constants.js'
+import { PALETTES } from '../palettes.js'
+import { gameState } from '../data/GameState.js'
+import { SENIORS } from '../data/seniors.js'
+import { YEAR_ENEMIES } from '../enemyConfig.js'
+import { POWERUPS } from '../powerupConfig.js'
+import { ZONE_LABELS, PLATFORM_CONFIGS, generateEnemyPositions, PICKUP_POSITIONS } from '../gameUtils.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GameScene.js — Mobile-first | Landscape | 3 Phases + Boss | Max Graphics
@@ -16,85 +23,55 @@ const GS = {
   powerupTimer: 0,
   hasResumeBoost: false,
 }
+const GROUND_Y_FRAC = GROUND_Y / H
 
-// ── Layout constants (scaled at runtime in create) ────────────────────────────
-const BASE_W        = 480
-const BASE_H        = 270
-const GROUND_Y_FRAC = 0.80       // fraction of H
-const LEVEL_WIDTH   = 3000
-const PLAYER_SPEED  = 185
-const JUMP_VEL      = -410
-const DMG_COOLDOWN  = 900        // ms
-
-// ── Year themes ───────────────────────────────────────────────────────────────
-const PALETTES = [
+const YEAR_VARIANTS = [
   {
-    sky: 0x0d1b4b, mid: 0x1a2e6e, ground: 0x2d4a8a,
-    accent: 0x5b8cff, fog: 0x0a1235,
-    name: 'YEAR 1 — FRESHMAN CONFUSION',
-    particleA: 0x5b8cff, particleB: 0xffffff,
-    ambientLight: 0x2233aa,
+    enemyCount: 10,
+    pickupXs: [480, 950, 1430, 1910, 2380],
+    powerupX: 750,
+    speedMul: 1.0,
+    movingPlatforms: false,
+    surgeEvery: 0,
+    surgeMul: 1.0,
   },
   {
-    sky: 0x061206, mid: 0x0e3d0e, ground: 0x1a5c1a,
-    accent: 0x39ff14, fog: 0x030803,
-    name: 'YEAR 2 — LAB HELL',
-    particleA: 0x39ff14, particleB: 0x00cc44,
-    ambientLight: 0x112211,
+    enemyCount: 12,
+    pickupXs: [430, 870, 1320, 1770, 2230, 2670],
+    powerupX: 980,
+    speedMul: 1.05,
+    movingPlatforms: true,
+    surgeEvery: 0,
+    surgeMul: 1.0,
   },
   {
-    sky: 0x2a1a00, mid: 0x4a2d00, ground: 0x7a4a00,
-    accent: 0xff8800, fog: 0x1a0d00,
-    name: 'YEAR 3 — PROJECT PANIC + BOSS',
-    particleA: 0xff8800, particleB: 0xffcc00,
-    ambientLight: 0x331a00,
+    enemyCount: 13,
+    pickupXs: [460, 910, 1360, 1810, 2260, 2700],
+    powerupX: 1310,
+    speedMul: 1.12,
+    movingPlatforms: false,
+    surgeEvery: 7000,
+    surgeMul: 1.25,
   },
-]
-
-// ── Enemy definitions per year ────────────────────────────────────────────────
-const YEAR_ENEMIES = [
-  [
-    { label: 'Lost Syllabus',  hp: 2, speed: 55,  color: 0x6688cc, w: 26, h: 26, score: 30 },
-    { label: 'Hostel Ragging', hp: 3, speed: 68,  color: 0xcc4466, w: 28, h: 28, score: 40 },
-    { label: 'Dean Notice',    hp: 2, speed: 48,  color: 0xccaa00, w: 24, h: 24, score: 30 },
-    { label: 'Attendance%',    hp: 4, speed: 75,  color: 0xff6644, w: 30, h: 30, score: 50 },
-  ],
-  [
-    { label: 'Segfault',   hp: 3, speed: 60,  color: 0x44cc44, w: 26, h: 26, score: 50 },
-    { label: 'Viva Exam',  hp: 4, speed: 82,  color: 0x88ff44, w: 28, h: 28, score: 60 },
-    { label: 'Lab Report', hp: 2, speed: 50,  color: 0x44ffaa, w: 24, h: 24, score: 40 },
-    { label: 'Compiler',   hp: 5, speed: 95,  color: 0xff4444, w: 32, h: 32, score: 70 },
-  ],
-  [
-    { label: 'Deadline',     hp: 4, speed: 72,  color: 0xff8800, w: 28, h: 28, score: 70 },
-    { label: 'No WiFi',      hp: 3, speed: 62,  color: 0xffaa00, w: 26, h: 26, score: 60 },
-    { label: 'Client',       hp: 5, speed: 88,  color: 0xff5500, w: 30, h: 30, score: 80 },
-    { label: 'Git Conflict', hp: 6, speed: 98,  color: 0xff3300, w: 34, h: 34, score: 100 },
-  ],
-]
-
-// ── Powerups ──────────────────────────────────────────────────────────────────
-const POWERUPS = [
-  { type: 'chai',   color: 0xcc8833, label: 'CHAI BOOST',   duration: 8000,  desc: '50% dmg reduction' },
-  { type: 'hack',   color: 0x00ff88, label: 'HACKER MODE',  duration: 6000,  desc: '2× attack range' },
-  { type: 'coffee', color: 0xaa6622, label: 'COFFEE RUN',   duration: 10000, desc: '2× speed' },
+  {
+    enemyCount: 15,
+    pickupXs: [420, 760, 1110, 1490, 1890, 2290, 2690],
+    powerupX: 1590,
+    speedMul: 1.18,
+    movingPlatforms: true,
+    surgeEvery: 5200,
+    surgeMul: 1.35,
+  },
 ]
 
 // ── Boss config ───────────────────────────────────────────────────────────────
 const BOSS_CFG = {
-  hp: 40, w: 80, h: 80,
+  hp: 25, w: 80, h: 80,
   phases: [
-    { threshold: 1.0,  color: 0xff2222, speed: 60,  shootInterval: 3000, shots: 1 },
-    { threshold: 0.65, color: 0xff6600, speed: 90,  shootInterval: 1800, shots: 2 },
-    { threshold: 0.35, color: 0xffcc00, speed: 120, shootInterval: 900,  shots: 3 },
+    { threshold: 1.0,  color: 0xff2222, speed: 55,  shootInterval: 3200, shots: 1 },
+    { threshold: 0.65, color: 0xff6600, speed: 80,  shootInterval: 2200, shots: 2 },
+    { threshold: 0.35, color: 0xffcc00, speed: 105, shootInterval: 1200, shots: 3 },
   ],
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper: hex int → css string
-// ─────────────────────────────────────────────────────────────────────────────
-function hexStr(v) {
-  return `#${v.toString(16).padStart(6, '0')}`
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,27 +87,91 @@ function buildTextures(scene) {
   }
 
   // ── Player ────────────────────────────────────────────────────────────────
-  make('player', 22, 32, g => {
-    g.fillStyle(0x1a1a4a); g.fillRect(3, 22, 7, 9); g.fillRect(12, 22, 7, 9)   // legs
-    g.fillStyle(0x222222); g.fillRect(1, 29, 8, 3); g.fillRect(12, 29, 8, 3)   // shoes
-    g.fillStyle(0x2255cc); g.fillRect(2, 11, 18, 13)                             // body
-    g.fillStyle(0x1a44aa); g.fillRect(2, 11, 18, 4)                              // collar
-    g.fillStyle(0xffcc99); g.fillRect(4, 2, 14, 11)                              // head
-    g.fillStyle(0x1a0a00); g.fillRect(3, 2, 16, 5)                               // hair
-    g.fillStyle(0x111111); g.fillRect(7, 8, 3, 3); g.fillRect(12, 8, 3, 3)      // eyes
-    g.fillStyle(0xffffff); g.fillRect(8, 9, 1, 1); g.fillRect(13, 9, 1, 1)      // pupils
-    g.fillStyle(0x994400); g.fillRect(18, 11, 6, 9)                              // arm
+  make('player', 32, 48, g => {
+    // Shadow
+    g.fillStyle(0x000000, 0.25); g.fillEllipse(16, 46, 24, 6)
+    // Legs
+    g.fillStyle(0x1a1a4a); g.fillRoundedRect(7, 34, 8, 12, 2); g.fillRoundedRect(17, 34, 8, 12, 2)
+    // Shoes
+    g.fillStyle(0xeeeeee); g.fillRoundedRect(5, 43, 10, 5, 2); g.fillRoundedRect(17, 43, 10, 5, 2)
+    g.fillStyle(0x4466ff, 0.6); g.fillRect(5, 45, 10, 1); g.fillRect(17, 45, 10, 1)
+    // Body (hoodie)
+    g.fillStyle(0x2255cc); g.fillRoundedRect(5, 18, 22, 18, 4)
+    g.fillStyle(0x1a44aa, 0.6); g.fillRoundedRect(5, 18, 8, 18, 4) // shadow side
+    g.fillStyle(0x4477ee, 0.4); g.fillRect(15, 20, 2, 14) // zipper
+    // Hoodie strings
+    g.fillStyle(0xffffff, 0.3); g.fillRect(14, 18, 1, 6); g.fillRect(17, 18, 1, 6)
+    // Backpack
+    g.fillStyle(0x8B4513); g.fillRoundedRect(0, 16, 7, 16, 3)
+    g.fillStyle(0x654321); g.fillRoundedRect(1, 17, 5, 14, 2)
+    g.fillStyle(0xDAA520); g.fillRect(2, 20, 3, 2) // buckle
+    // Arms
+    g.fillStyle(0x2255cc); g.fillRoundedRect(1, 20, 6, 12, 2); g.fillRoundedRect(25, 20, 6, 12, 2)
+    // Hands
+    g.fillStyle(0xd4905a); g.fillCircle(4, 33, 3); g.fillCircle(28, 33, 3)
+    // Neck
+    g.fillStyle(0xd4905a); g.fillRect(13, 14, 6, 6)
+    // Head
+    g.fillStyle(0xe8a870); g.fillRoundedRect(7, 2, 18, 16, 4)
+    // Head shadow
+    g.fillStyle(0xc4885a, 0.4); g.fillRoundedRect(7, 2, 7, 16, 4)
+    // Hair
+    g.fillStyle(0x1a0a00); g.fillEllipse(16, 3, 20, 10)
+    g.fillRect(7, 2, 5, 8) // side hair
+    // Eyes
+    g.fillStyle(0xffffff); g.fillRoundedRect(10, 8, 5, 4, 1); g.fillRoundedRect(17, 8, 5, 4, 1)
+    g.fillStyle(0x1a1a1a); g.fillCircle(12, 10, 1.5); g.fillCircle(19, 10, 1.5)
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(13, 9, 0.8); g.fillCircle(20, 9, 0.8)
+    // Glasses
+    g.lineStyle(1.5, 0x333355, 0.8)
+    g.strokeRoundedRect(9, 7, 6, 5, 1); g.strokeRoundedRect(17, 7, 6, 5, 1)
+    g.lineBetween(15, 9, 17, 9)
+    // Nose + mouth
+    g.fillStyle(0xc4885a, 0.5); g.fillRect(14, 12, 3, 2)
+    g.fillStyle(0x8b3a1a, 0.6); g.fillRect(13, 15, 6, 1)
+    // Cheek blush
+    g.fillStyle(0xff8888, 0.15); g.fillCircle(10, 13, 3); g.fillCircle(22, 13, 3)
   })
 
-  make('player_jump', 22, 32, g => {
-    g.fillStyle(0x1a1a4a); g.fillRect(1, 23, 7, 8); g.fillRect(14, 23, 7, 8)
-    g.fillStyle(0x222222); g.fillRect(0, 29, 8, 3); g.fillRect(14, 29, 8, 3)
-    g.fillStyle(0x2255cc); g.fillRect(2, 11, 18, 13)
-    g.fillStyle(0x2255cc); g.fillRect(-1, 8, 4, 10); g.fillRect(19, 8, 4, 10)  // arms up
-    g.fillStyle(0xffcc99); g.fillRect(-1, 6, 4, 5); g.fillRect(19, 6, 4, 5)   // hands
-    g.fillStyle(0xffcc99); g.fillRect(4, 2, 14, 11)
-    g.fillStyle(0x1a0a00); g.fillRect(3, 2, 16, 5)
-    g.fillStyle(0x111111); g.fillRect(7, 8, 3, 3); g.fillRect(12, 8, 3, 3)
+  make('player_jump', 32, 48, g => {
+    // Shadow (smaller when jumping)
+    g.fillStyle(0x000000, 0.15); g.fillEllipse(16, 46, 16, 4)
+    // Legs (bent)
+    g.fillStyle(0x1a1a4a); g.fillRoundedRect(5, 36, 8, 10, 2); g.fillRoundedRect(19, 36, 8, 10, 2)
+    // Shoes
+    g.fillStyle(0xeeeeee); g.fillRoundedRect(4, 43, 10, 5, 2); g.fillRoundedRect(18, 43, 10, 5, 2)
+    g.fillStyle(0x4466ff, 0.6); g.fillRect(4, 45, 10, 1); g.fillRect(18, 45, 10, 1)
+    // Body (hoodie)
+    g.fillStyle(0x2255cc); g.fillRoundedRect(5, 18, 22, 18, 4)
+    g.fillStyle(0x1a44aa, 0.6); g.fillRoundedRect(5, 18, 8, 18, 4)
+    g.fillStyle(0x4477ee, 0.4); g.fillRect(15, 20, 2, 14)
+    // Backpack
+    g.fillStyle(0x8B4513); g.fillRoundedRect(0, 16, 7, 16, 3)
+    g.fillStyle(0x654321); g.fillRoundedRect(1, 17, 5, 14, 2)
+    g.fillStyle(0xDAA520); g.fillRect(2, 20, 3, 2)
+    // Arms (raised for jump)
+    g.fillStyle(0x2255cc); g.fillRoundedRect(0, 14, 6, 14, 2); g.fillRoundedRect(26, 14, 6, 14, 2)
+    // Hands (up)
+    g.fillStyle(0xd4905a); g.fillCircle(3, 14, 3); g.fillCircle(29, 14, 3)
+    // Neck
+    g.fillStyle(0xd4905a); g.fillRect(13, 14, 6, 6)
+    // Head
+    g.fillStyle(0xe8a870); g.fillRoundedRect(7, 2, 18, 16, 4)
+    g.fillStyle(0xc4885a, 0.4); g.fillRoundedRect(7, 2, 7, 16, 4)
+    // Hair (flowing up from jump)
+    g.fillStyle(0x1a0a00); g.fillEllipse(16, 1, 22, 10)
+    g.fillRect(7, 1, 5, 7)
+    // Eyes (excited - bigger)
+    g.fillStyle(0xffffff); g.fillRoundedRect(10, 7, 5, 5, 1); g.fillRoundedRect(17, 7, 5, 5, 1)
+    g.fillStyle(0x1a1a1a); g.fillCircle(12, 9, 1.5); g.fillCircle(19, 9, 1.5)
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(13, 8, 0.8); g.fillCircle(20, 8, 0.8)
+    // Glasses
+    g.lineStyle(1.5, 0x333355, 0.8)
+    g.strokeRoundedRect(9, 6, 6, 6, 1); g.strokeRoundedRect(17, 6, 6, 6, 1)
+    g.lineBetween(15, 9, 17, 9)
+    // Mouth (open smile)
+    g.fillStyle(0x8b3a1a); g.fillRoundedRect(12, 14, 8, 3, 1)
+    g.fillStyle(0xffffff, 0.5); g.fillRect(14, 14, 4, 1) // teeth
   })
 
   // ── Ground tile ───────────────────────────────────────────────────────────
@@ -225,35 +266,93 @@ function buildTextures(scene) {
     g.fillStyle(0x000000); g.fillRect(8, 82, 28, 6);  g.fillRect(44, 82, 28, 6)
   })
 
-  // ── Enemy sprites (per year × variant) ───────────────────────────────────
+  // ── Enemy sprites (per year × variant) — MONSTERS not students ─────────
   for (let y = 0; y < YEAR_ENEMIES.length; y++) {
     YEAR_ENEMIES[y].forEach((cfg, j) => {
       const s = cfg.w
-      make(`enemy_${y}_${j}`, s + 4, s + 4, g => {
+      const hs = Math.floor(s / 2)
+      make(`enemy_${y}_${j}`, s + 8, s + 8, g => {
         const c = cfg.color
-        const dark = Phaser.Display.Color.ValueToColor(c).darken(25).color
-        // body
-        g.fillStyle(c); g.fillRect(2, 4, s, s)
-        g.lineStyle(2, dark); g.strokeRect(2, 4, s, s)
-        // face
-        g.fillStyle(0xffffff); g.fillRect(5, 8, 7, 6); g.fillRect(s - 10, 8, 7, 6)
-        g.fillStyle(0x000000); g.fillRect(7, 9, 3, 4);  g.fillRect(s - 8, 9, 3, 4)
-        g.fillStyle(0xff0000); g.fillRect(8, 10, 1, 1); g.fillRect(s - 7, 10, 1, 1)
-        // angry brows
-        g.lineStyle(2, 0x000000)
-        g.lineBetween(5, 7, 13, 9); g.lineBetween(s - 2, 7, s - 10, 9)
-        // teeth
-        g.fillStyle(0x000000); g.fillRect(6, s - 6, s - 10, 4)
-        g.fillStyle(0xffffff)
-        for (let t = 0; t < 3; t++) g.fillRect(7 + t * 5, s - 6, 3, 3)
-        // legs
-        g.fillStyle(c); g.fillRect(3, s + 1, 6, 5); g.fillRect(s - 5, s + 1, 6, 5)
+
+        if (y === 0) {
+          // Year 1: Ghost skulls — floating spooky shapes
+          g.fillStyle(c, 0.2); g.fillCircle(hs+4, hs+4, hs+3) // aura
+          g.fillStyle(c); g.fillCircle(hs+4, hs+2, hs) // head
+          g.fillStyle(Phaser.Display.Color.ValueToColor(c).darken(30).color, 0.6)
+          g.fillCircle(hs+4, hs+5, hs-2) // shadow
+          // Wavy bottom (ghostly)
+          for (let i = 0; i < 4; i++) {
+            g.fillStyle(c, 0.8)
+            g.fillCircle(2 + i * (s/3.5), s+2, 4)
+          }
+          // Eyes — glowing red
+          g.fillStyle(0xff0000); g.fillCircle(hs-1, hs, 3); g.fillCircle(hs+9, hs, 3)
+          g.fillStyle(0xff4444, 0.6); g.fillCircle(hs-1, hs, 5); g.fillCircle(hs+9, hs, 5)
+          g.fillStyle(0xffffff); g.fillCircle(hs, hs-1, 1); g.fillCircle(hs+10, hs-1, 1)
+          // Mouth
+          g.fillStyle(0x000000); g.fillRect(hs-2, hs+5, 12, 3)
+          g.fillStyle(0xffffff)
+          for (let t = 0; t < 3; t++) g.fillTriangle(hs-1+t*4, hs+5, hs+1+t*4, hs+8, hs+3+t*4, hs+5)
+        } else if (y === 1) {
+          // Year 2: Glitch bugs — digital creatures with static
+          g.fillStyle(c, 0.15); g.fillRect(0, 0, s+8, s+8) // glitch field
+          g.fillStyle(c); g.fillRoundedRect(2, 2, s+4, s+4, 4) // body
+          g.fillStyle(Phaser.Display.Color.ValueToColor(c).darken(40).color)
+          g.fillRoundedRect(2, 2, s+4, Math.floor(s/2), 4) // head section
+          // Antennae
+          g.lineStyle(2, c); g.lineBetween(hs-2, 2, hs-6, -4); g.lineBetween(hs+6, 2, hs+10, -4)
+          g.fillStyle(0xff0000); g.fillCircle(hs-6, -4, 2); g.fillCircle(hs+10, -4, 2)
+          // Eyes — red LED
+          g.fillStyle(0x000000); g.fillRect(hs-4, hs-2, 6, 5); g.fillRect(hs+4, hs-2, 6, 5)
+          g.fillStyle(0xff0000); g.fillRect(hs-3, hs-1, 4, 3); g.fillRect(hs+5, hs-1, 4, 3)
+          g.fillStyle(0xffaa00, 0.8); g.fillRect(hs-2, hs-1, 2, 1); g.fillRect(hs+6, hs-1, 2, 1)
+          // Jagged mouth
+          g.fillStyle(0x000000); g.fillRect(hs-4, hs+6, 14, 4)
+          g.fillStyle(0x00ff00)
+          for (let t = 0; t < 4; t++) g.fillRect(hs-3+t*3, hs+6, 2, 2)
+          // Glitch lines
+          g.fillStyle(0xffffff, 0.3)
+          g.fillRect(2, hs+1, s+4, 1); g.fillRect(2, hs+3, s+4, 1)
+          // Legs
+          g.fillStyle(c); g.fillRect(hs-4, s+3, 3, 5); g.fillRect(hs+5, s+3, 3, 5)
+        } else if (y === 2) {
+          // Year 3: Fire demons — horned burning creatures
+          g.fillStyle(0xff4400, 0.15); g.fillCircle(hs+4, hs+4, hs+4) // fire aura
+          g.fillStyle(c); g.fillRoundedRect(2, 6, s+4, s, 5) // body
+          g.fillStyle(Phaser.Display.Color.ValueToColor(c).darken(30).color)
+          g.fillRoundedRect(2, s-2, s+4, 8, 3) // lower body
+          // Horns
+          g.fillStyle(0x440000)
+          g.fillTriangle(hs-2, 6, hs-6, -6, hs+2, 6) // left horn
+          g.fillTriangle(hs+6, 6, hs+10, -6, hs+2, 6) // right horn
+          g.fillStyle(0x880000, 0.6)
+          g.fillTriangle(hs-1, 6, hs-4, -2, hs+1, 6)
+          g.fillTriangle(hs+5, 6, hs+8, -2, hs+3, 6)
+          // Eyes — burning yellow-red
+          g.fillStyle(0xffaa00); g.fillCircle(hs-2, hs+2, 4); g.fillCircle(hs+8, hs+2, 4)
+          g.fillStyle(0xff0000); g.fillCircle(hs-2, hs+2, 2); g.fillCircle(hs+8, hs+2, 2)
+          g.fillStyle(0xffffff, 0.8); g.fillCircle(hs-1, hs+1, 1); g.fillCircle(hs+9, hs+1, 1)
+          // Mouth with fangs
+          g.fillStyle(0x220000); g.fillRect(hs-4, hs+8, 14, 5)
+          g.fillStyle(0xffffff)
+          g.fillTriangle(hs-3, hs+8, hs-1, hs+12, hs+1, hs+8) // fang L
+          g.fillTriangle(hs+5, hs+8, hs+7, hs+12, hs+9, hs+8) // fang R
+          // Flame wisps on top
+          g.fillStyle(0xff6600, 0.5); g.fillCircle(hs, 4, 3); g.fillCircle(hs+6, 3, 2)
+          g.fillStyle(0xffcc00, 0.4); g.fillCircle(hs+3, 2, 2)
+        } else {
+          // Year 4: Golden memory wisps (peaceful)
+          g.fillStyle(c, 0.2); g.fillCircle(hs+4, hs+4, hs+3)
+          g.fillStyle(c, 0.7); g.fillCircle(hs+4, hs+4, hs)
+          g.fillStyle(0xffffff, 0.4); g.fillCircle(hs+2, hs+2, hs-3)
+          g.fillStyle(0xffffff, 0.7); g.fillCircle(hs+2, hs, 2)
+        }
       })
     })
   }
 
   // ── Backgrounds per year ──────────────────────────────────────────────────
-  for (let y = 0; y < 3; y++) {
+  for (let y = 0; y < 4; y++) {
     const pal = PALETTES[y]
     make(`bg_${y}`, 480, 270, g => {
       // Sky gradient approximated with bands
@@ -310,18 +409,33 @@ function buildTextures(scene) {
         ;[[5,40,28,18],[50,45,22,15],[92,38,26,16],[135,42,20,14]].forEach(([x,y2,w,h]) => g.fillRect(x,y2,w,h))
         g.fillStyle(0x00ff00, 0.25)
         ;[[6,41,26,16],[51,46,20,13],[93,39,24,14],[136,43,18,12]].forEach(([x,y2,w,h]) => g.fillRect(x,y2,w,h))
-      } else {
+      } else if (y === 2) {
         // Sunset + fire city
         g.fillStyle(0xff6600, 0.5); g.fillCircle(240, 135, 50)
         g.fillStyle(0xffaa00, 0.25); g.fillCircle(240, 135, 75)
         g.fillStyle(0x1a0d00)
         ;[[0,55,25],[30,50,20],[60,62,28],[100,45,22],[135,55,32],[180,42,25],[220,58,30],[265,48,28],[305,60,22],[340,42,35],[385,54,25],[420,60,55]].forEach(([x,y2,w]) => g.fillRect(x,y2,w,270))
-        // Fire on tops
         g.fillStyle(0xff4400, 0.6)
         g.fillCircle(12, 53, 6); g.fillCircle(48, 48, 5); g.fillCircle(350, 40, 7)
-        // Crane
         g.lineStyle(2, 0x1a0d00)
         g.lineBetween(80, 50, 80, 20); g.lineBetween(80, 20, 120, 20); g.lineBetween(120, 20, 120, 40)
+      } else {
+        // Year 4: Golden sunset campus
+        g.fillStyle(0xffcc44, 0.3); g.fillCircle(380, 100, 60)
+        g.fillStyle(0xffaa22, 0.5); g.fillCircle(380, 100, 35)
+        g.fillStyle(0xffdd66, 0.8); g.fillCircle(380, 100, 18)
+        g.fillStyle(0xffddaa, 0.15)
+        g.fillEllipse(100, 40, 120, 30); g.fillEllipse(300, 55, 90, 25)
+        g.fillStyle(0x1a0800)
+        ;[[20,70],[80,60],[160,65],[260,55],[350,68],[430,58]].forEach(([tx,ty]) => {
+          g.fillCircle(tx, ty, 22); g.fillRect(tx-3, ty, 6, 270-ty)
+        })
+        g.fillStyle(0x1a0a00)
+        g.fillRect(100, 80, 60, 190); g.fillRect(200, 75, 80, 195); g.fillRect(320, 85, 50, 185)
+        g.fillStyle(0xffcc66, 0.3)
+        for(let wx2=105;wx2<155;wx2+=10) for(let wy2=85;wy2<200;wy2+=14) g.fillRect(wx2,wy2,6,8)
+        g.fillStyle(0xff8844, 0.2)
+        for(let i2=0;i2<30;i2++) g.fillCircle(Math.random()*480, 210+Math.random()*60, 2)
       }
     })
   }
@@ -359,9 +473,10 @@ class YearTransitionScene extends Phaser.Scene {
       ['YEAR 1', 'FRESHMAN CONFUSION', 'You arrive with dreams, a bag,\nand zero idea what you\'re doing.', '#5b8cff'],
       ['YEAR 2', 'LAB HELL',           'The VMs crash. The viva examiner\nhas never smiled in their life.',   '#39ff14'],
       ['YEAR 3', 'PROJECT PANIC',      'Three deadlines. One missing teammate.\nThe boss awaits at the end.',   '#ff8800'],
+      ['YEAR 4', 'THE FINAL WALK',     'No more exams. No more deadlines.\nJust memories... and the SI Lab gate.', '#ffdd66'],
     ]
 
-    const [yearLabel, subtitle, desc, col] = yearTitles[Math.min(this.nextYear, 2)]
+    const [yearLabel, subtitle, desc, col] = yearTitles[Math.min(this.nextYear, 3)]
 
     // BG
     this.add.rectangle(W / 2, H / 2, W, H, 0x000000)
@@ -505,6 +620,150 @@ class EndingScene extends Phaser.Scene {
   }
 }
 
+class SIFinaleBridgeScene extends Phaser.Scene {
+  constructor() { super('SIFinaleBridge') }
+
+  create() {
+    const W = this.scale.width
+    const H = this.scale.height
+    const fs = n => `${Math.floor(W / n)}px`
+
+    this.cameras.main.fadeIn(1200, 0, 0, 0)
+
+    // Deep space background
+    this.add.rectangle(W / 2, H / 2, W, H, 0x020810)
+
+    // Stars
+    for (let i = 0; i < 80; i++) {
+      const s = this.add.circle(
+        Phaser.Math.Between(0, W), Phaser.Math.Between(0, H * 0.7),
+        Phaser.Math.FloatBetween(0.5, 2), 0xffffff,
+        Phaser.Math.FloatBetween(0.2, 0.9)
+      )
+      this.tweens.add({ targets: s, alpha: 0.05, duration: Phaser.Math.Between(500, 2000), yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 2000) })
+    }
+
+    // Floating light motes
+    this.time.addEvent({
+      delay: 150, loop: true,
+      callback: () => {
+        const colors = [0x44aaff, 0x88ddff, 0xffcc44, 0xffffff, 0x66eeff]
+        const mote = this.add.circle(
+          Phaser.Math.Between(W * 0.2, W * 0.8),
+          H + 10,
+          Phaser.Math.FloatBetween(1, 4),
+          Phaser.Utils.Array.GetRandom(colors),
+          Phaser.Math.FloatBetween(0.3, 0.8)
+        )
+        this.tweens.add({
+          targets: mote, y: -20, x: mote.x + Phaser.Math.Between(-60, 60),
+          alpha: 0, duration: Phaser.Math.Between(2500, 5000),
+          onComplete: () => mote.destroy()
+        })
+      }
+    })
+
+    // Gate outer glow
+    const glow = this.add.graphics()
+    for (let r = 120; r > 0; r -= 6) {
+      glow.fillStyle(0x2266cc, 0.01 * (1 - r/120))
+      glow.fillEllipse(W / 2, H * 0.45, r * 3, r * 2.5)
+    }
+
+    // Gate frame — ornate
+    const gate = this.add.graphics()
+    // Outer frame
+    gate.fillStyle(0x0a2244); gate.fillRoundedRect(W * 0.22, H * 0.12, W * 0.56, H * 0.72, 16)
+    gate.lineStyle(4, 0x44aaff, 0.8); gate.strokeRoundedRect(W * 0.22, H * 0.12, W * 0.56, H * 0.72, 16)
+    // Inner frame
+    gate.fillStyle(0x081830, 0.9); gate.fillRoundedRect(W * 0.26, H * 0.16, W * 0.48, H * 0.64, 12)
+    gate.lineStyle(2, 0x88ddff, 0.5); gate.strokeRoundedRect(W * 0.26, H * 0.16, W * 0.48, H * 0.64, 12)
+    // Energy field inside gate
+    gate.fillStyle(0x1144aa, 0.15); gate.fillRoundedRect(W * 0.28, H * 0.18, W * 0.44, H * 0.60, 8)
+    // Gold accent lines
+    gate.lineStyle(2, 0xffcc44, 0.6)
+    gate.strokeRoundedRect(W * 0.24, H * 0.14, W * 0.52, H * 0.68, 14)
+    // Corner decorations
+    const corners = [[W*0.24, H*0.14], [W*0.76, H*0.14], [W*0.24, H*0.82], [W*0.76, H*0.82]]
+    corners.forEach(([cx, cy]) => {
+      gate.fillStyle(0xffcc44, 0.8); gate.fillCircle(cx, cy, 5)
+      gate.fillStyle(0xffffff, 0.4); gate.fillCircle(cx, cy, 2)
+    })
+    // Door handle
+    gate.fillStyle(0xffcc44); gate.fillCircle(W * 0.62, H * 0.5, 5)
+    gate.fillStyle(0xffffff, 0.5); gate.fillCircle(W * 0.62, H * 0.49, 2)
+
+    // Pulsing energy field
+    const energy = this.add.rectangle(W / 2, H * 0.48, W * 0.40, H * 0.55, 0x2288ff, 0.08)
+    this.tweens.add({ targets: energy, alpha: 0.02, duration: 1500, yoyo: true, repeat: -1 })
+
+    // SI text — large neon glow
+    const siGlow = this.add.text(W / 2, H * 0.32, 'SI', {
+      fontFamily: '"Nunito", sans-serif', fontSize: fs(3.5),
+      color: '#44aaff', fontStyle: 'bold',
+    }).setOrigin(0.5).setAlpha(0.3)
+    this.tweens.add({ targets: siGlow, alpha: 0.15, duration: 1200, yoyo: true, repeat: -1 })
+
+    this.add.text(W / 2, H * 0.32, 'SI', {
+      fontFamily: '"Nunito", sans-serif', fontSize: fs(4),
+      color: '#dff6ff', fontStyle: 'bold',
+      stroke: '#44aaff', strokeThickness: 3,
+    }).setOrigin(0.5)
+
+    this.add.text(W / 2, H * 0.44, 'L A B', {
+      fontFamily: '"Nunito", sans-serif', fontSize: fs(14),
+      color: '#88ccff', letterSpacing: 8,
+    }).setOrigin(0.5)
+
+    // Message
+    const msg = this.add.text(W / 2, H * 0.58, 'You walk through the\nglorious gates of SI Lab.', {
+      fontFamily: '"Nunito", sans-serif', fontSize: fs(22),
+      color: '#c0ddff', align: 'center', lineSpacing: 8,
+    }).setOrigin(0.5).setAlpha(0)
+    this.tweens.add({ targets: msg, alpha: 1, duration: 800, delay: 1500 })
+
+    const msg2 = this.add.text(W / 2, H * 0.70, 'Welcome home, engineer. 🎓', {
+      fontFamily: '"Nunito", sans-serif', fontSize: fs(26),
+      color: '#ffdd88',
+    }).setOrigin(0.5).setAlpha(0)
+    this.tweens.add({ targets: msg2, alpha: 1, duration: 800, delay: 2800 })
+
+    // Stats
+    this.add.text(W / 2, H * 0.78, `SCORE: ${GS.score}  |  CGPA: ${GS.cgpa.toFixed(1)}  |  KILLS: ${GS.totalKills}`, {
+      fontFamily: '"Nunito", sans-serif', fontSize: fs(48),
+      color: '#556688',
+    }).setOrigin(0.5).setAlpha(0.7)
+
+    // Continue prompt
+    const cont = this.add.text(W / 2, H * 0.90, '▼ tap to continue ▼', {
+      fontFamily: '"Nunito", sans-serif', fontSize: fs(50),
+      color: '#445566',
+    }).setOrigin(0.5).setAlpha(0)
+    this.tweens.add({ targets: cont, alpha: 0.8, duration: 600, delay: 4000 })
+    this.tweens.add({ targets: cont, alpha: 0.2, duration: 500, delay: 4600, yoyo: true, repeat: -1 })
+
+    // Confetti
+    for (let i = 0; i < 40; i++) {
+      const colors = [0xffcc00, 0xff6600, 0x44aaff, 0xff44aa, 0x44ff88, 0xffffff]
+      const dot = this.add.rectangle(
+        Phaser.Math.Between(0, W), Phaser.Math.Between(-H, 0),
+        Phaser.Math.Between(3, 8), Phaser.Math.Between(3, 8),
+        Phaser.Utils.Array.GetRandom(colors), 0.7
+      )
+      this.tweens.add({ targets: dot, y: H + 20, rotation: Math.PI * 2, duration: Phaser.Math.Between(2000, 5000), delay: Phaser.Math.Between(0, 3000), repeat: -1 })
+    }
+
+    // Transition to ending
+    const goToEnding = () => {
+      this.cameras.main.fadeOut(800)
+      this.time.delayedCall(900, () => this.scene.start('BTechEnding'))
+    }
+    this.time.delayedCall(8000, goToEnding)
+    this.input.once('pointerdown', () => { this.time.removeAllEvents(); goToEnding() })
+    this.input.keyboard.once('keydown', () => { this.time.removeAllEvents(); goToEnding() })
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main GameScene
 // ─────────────────────────────────────────────────────────────────────────────
@@ -541,6 +800,15 @@ export class GameScene extends Phaser.Scene {
     this._bgTile         = null
     this._particles      = null
     this._scanlineOverlay = null
+    this._seniorTag      = null
+    this._selectedSenior = SENIORS.find(senior => senior.id === gameState.selectedSenior) || null
+    this._yearVariant    = YEAR_VARIANTS[this.year] || YEAR_VARIANTS[0]
+    this._surgeActive    = false
+    this._surgeEndTime   = 0
+    this._nextSurgeTime  = this._yearVariant.surgeEvery || Infinity
+    this._doorSequenceStarted = false
+    this._exitDoor       = null
+    this._exitDoorGlow   = null
 
     // Mobile button zones (set in _buildMobileControls)
     this._btnLeft   = null
@@ -598,6 +866,8 @@ export class GameScene extends Phaser.Scene {
       .setMaxVelocity(400, 700)
       .setDepth(10)
 
+    this._createSeniorTag(W, H)
+
     this._populateLevel(H)
 
     // Camera
@@ -645,6 +915,7 @@ export class GameScene extends Phaser.Scene {
   _ensureSupportScenes() {
     if (!this.scene.manager.keys['YearTransition']) this.scene.add('YearTransition', YearTransitionScene, false)
     if (!this.scene.manager.keys['BTechEnding'])    this.scene.add('BTechEnding',    EndingScene,         false)
+    if (!this.scene.manager.keys['SIFinaleBridge']) this.scene.add('SIFinaleBridge', SIFinaleBridgeScene, false)
   }
 
   // ── Background ────────────────────────────────────────────────────────────
@@ -674,20 +945,42 @@ export class GameScene extends Phaser.Scene {
     })
 
     // Exit door
-    const door = this.add.image(LEVEL_WIDTH - 70, this._groundY - 50, 'exit_door')
+    this._exitDoor = this.add.image(LEVEL_WIDTH - 70, this._groundY - 50, 'exit_door')
       .setDepth(2)
-    const glow = this.add.rectangle(LEVEL_WIDTH - 70, this._groundY - 25, 50, 80, 0x44aaff, 0.12)
-      .setDepth(1)
-    this.tweens.add({ targets: glow, alpha: 0.04, duration: 1100, yoyo: true, repeat: -1 })
+    this._exitDoorGlow = this.add.rectangle(
+      LEVEL_WIDTH - 70,
+      this._groundY - 25,
+      50,
+      80,
+      this.year === 3 ? 0xffdd66 : 0x44aaff,
+      this.year === 3 ? 0.2 : 0.12
+    ).setDepth(1)
+    this.tweens.add({
+      targets: this._exitDoorGlow,
+      alpha: this.year === 3 ? 0.08 : 0.04,
+      duration: 1100,
+      yoyo: true,
+      repeat: -1
+    })
   }
 
   _getZoneLabels() {
-    const sets = [
-      [{ x: 60,   text: 'ORIENTATION' }, { x: 900,  text: 'SEM 1' },       { x: 1800, text: 'MID-SEMS' },    { x: 2600, text: 'END-SEMS' }],
-      [{ x: 60,   text: 'LAB 1'       }, { x: 900,  text: 'LAB 2' },       { x: 1800, text: 'MINI PROJECT' }, { x: 2600, text: 'LAB VIVA' }],
-      [{ x: 60,   text: 'IDEATION'    }, { x: 900,  text: 'DEVELOPMENT' }, { x: 1800, text: 'DEADLINES' },   { x: 2600, text: 'BOSS FIGHT' }],
+    const fallback = [
+      [{ x: 60, text: 'ORIENTATION' }, { x: 900, text: 'SEM 1' }, { x: 1800, text: 'MID-SEMS' }, { x: 2600, text: 'END-SEMS' }],
+      [{ x: 60, text: 'LAB 1' }, { x: 900, text: 'LAB 2' }, { x: 1800, text: 'MINI PROJECT' }, { x: 2600, text: 'LAB VIVA' }],
+      [{ x: 60, text: 'IDEATION' }, { x: 900, text: 'DEVELOPMENT' }, { x: 1800, text: 'DEADLINES' }, { x: 2600, text: 'BOSS FIGHT' }],
+      [{ x: 60, text: 'RESUME' }, { x: 900, text: 'APTITUDE' }, { x: 1800, text: 'TECH ROUND' }, { x: 2600, text: 'GLORIOUS SI DOOR' }],
     ]
-    return sets[this.year] || []
+    return ZONE_LABELS[this.year] || fallback[this.year] || fallback[0]
+  }
+
+  _createSeniorTag(W, H) {
+    if (!this._selectedSenior) return
+    this._seniorTag = this.add.text(W - 10, 8, `🎓 ${this._selectedSenior.name.split(' ')[0].toUpperCase()}`, {
+      fontFamily: '"Nunito", sans-serif',
+      fontSize: `${Math.floor(W / 60)}px`,
+      color: '#f0c040'
+    }).setOrigin(1, 0).setDepth(50).setScrollFactor(0)
   }
 
   // ── Ground ────────────────────────────────────────────────────────────────
@@ -703,15 +996,33 @@ export class GameScene extends Phaser.Scene {
   // ── Platforms ─────────────────────────────────────────────────────────────
   _buildPlatforms(pal, H) {
     const gy = H * GROUND_Y_FRAC
-    const configs = [
+    const fallback = [
       [[320,gy-70],[580,gy-105],[870,gy-75],[1120,gy-120],[1380,gy-80],[1650,gy-60],[1920,gy-105],[2200,gy-78],[2480,gy-95],[2750,gy-60]],
       [[290,gy-80],[545,gy-120],[810,gy-70],[1060,gy-140],[1330,gy-90],[1620,gy-65],[1900,gy-115],[2180,gy-58],[2450,gy-95],[2720,gy-110]],
       [[310,gy-75],[570,gy-115],[860,gy-145],[1060,gy-80],[1340,gy-105],[1640,gy-60],[1940,gy-90],[2200,gy-130],[2480,gy-70],[2760,gy-100]],
+      [[280,gy-95],[510,gy-135],[760,gy-78],[1030,gy-148],[1290,gy-88],[1570,gy-124],[1880,gy-92],[2140,gy-140],[2430,gy-100],[2720,gy-128]],
     ]
-    this.platforms = this.physics.add.staticGroup()
-    ;(configs[this.year] || configs[0]).forEach(([x, y]) => {
+    const configs = PLATFORM_CONFIGS[this.year] || fallback[this.year] || fallback[0]
+    this.platforms = this.physics.add.group({ allowGravity: false, immovable: true })
+    configs.forEach(([x, y], index) => {
       const p = this.platforms.create(x, y, 'platform')
-      p.setTint(pal.ground).refreshBody()
+      p.setTint(pal.ground)
+      p.body.allowGravity = false
+      p.body.moves = false
+
+      if (this._yearVariant.movingPlatforms && index % 2 === 1) {
+        const startX = x
+        const travel = this.year === 3 ? 90 : 60
+        this.tweens.add({
+          targets: p,
+          x: startX + travel,
+          duration: 2200 + index * 90,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+          onUpdate: () => p.body.updateFromGameObject(),
+        })
+      }
     })
   }
 
@@ -764,6 +1075,46 @@ export class GameScene extends Phaser.Scene {
           })
         }
       })
+    } else if (this.year === 3) {
+      // Year 4: Floating golden leaves + warm light motes
+      this._leafTimer = this.time.addEvent({
+        delay: 400, loop: true,
+        callback: () => {
+          const colors = [0xff8844, 0xffcc44, 0xffaa22, 0xddaa44, 0xffdd88]
+          const leaf = this.add.circle(
+            LEVEL_WIDTH + 20,
+            Phaser.Math.Between(10, H * 0.7),
+            Phaser.Math.Between(2, 5),
+            Phaser.Utils.Array.GetRandom(colors),
+            Phaser.Math.FloatBetween(0.3, 0.7)
+          ).setDepth(-1)
+          this.tweens.add({
+            targets: leaf, x: -30,
+            y: leaf.y + Phaser.Math.Between(20, 80),
+            angle: Phaser.Math.Between(180, 720),
+            duration: Phaser.Math.Between(3000, 6000),
+            onComplete: () => leaf.destroy()
+          })
+        }
+      })
+      // Warm light particles rising
+      this.time.addEvent({
+        delay: 250, loop: true,
+        callback: () => {
+          const mote = this.add.circle(
+            Phaser.Math.Between(0, LEVEL_WIDTH),
+            H,
+            Phaser.Math.FloatBetween(1, 3),
+            0xffdd88,
+            Phaser.Math.FloatBetween(0.1, 0.4)
+          ).setDepth(-2)
+          this.tweens.add({
+            targets: mote, y: -20, alpha: 0,
+            duration: Phaser.Math.Between(3000, 6000),
+            onComplete: () => mote.destroy()
+          })
+        }
+      })
     }
   }
 
@@ -795,6 +1146,27 @@ export class GameScene extends Phaser.Scene {
   // ── Populate level entities ────────────────────────────────────────────────
   _populateLevel(H) {
     const gy     = this._groundY
+    this._isMemoryWalk = (this.year === 3)
+
+    if (this._isMemoryWalk) {
+      // Year 4: Memory Walk — no enemies, just collectible memories
+      const memoryXs = [200, 450, 700, 950, 1200, 1450, 1700, 1950, 2200, 2500, 2800]
+      memoryXs.forEach((x, i) => {
+        const p = this._spawnPickup(x, gy - 55, 'pickup')
+        // Add floating label
+        const labels = ['☕ Chai', '🔑 Lab Key', '📸 Photo', '🎵 Music', '📖 Notes', '🎓 Cap', '☕ Chai', '🏆 Trophy', '📸 Selfie', '🎵 Song', '💡 Idea']
+        this.add.text(x, gy - 78, labels[i] || '✨', {
+          fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(this.scale.width / 55)}px`,
+          color: '#ffdd88',
+        }).setOrigin(0.5).setDepth(9)
+      })
+      // Extra HP pickups along the walk
+      ;[350, 850, 1350, 1850, 2350].forEach(x => {
+        this._spawnPickup(x, gy - 48, 'pickup_hp')
+      })
+      return
+    }
+
     const cfgs   = YEAR_ENEMIES[this.year]
     const count  = 11
 
@@ -805,9 +1177,9 @@ export class GameScene extends Phaser.Scene {
       this._spawnEnemy(x, gy - cfg.h / 2 - 2, cfg, key)
     }
 
-    // Pickups — alternating score / hp
-    ;[480, 950, 1430, 1910, 2380].forEach((x, i) => {
-      this._spawnPickup(x, gy - 52, i % 2 === 0 ? 'pickup' : 'pickup_hp')
+    // Pickups — alternating score / hp (more HP pickups now)
+    YEAR_VARIANTS[this.year].pickupXs.forEach((x, i) => {
+      this._spawnPickup(x, gy - 52, i % 3 === 0 ? 'pickup' : 'pickup_hp')
     })
 
     // Powerup
@@ -1160,7 +1532,7 @@ export class GameScene extends Phaser.Scene {
 
       hitAny = true
       const isBoss = e.getData('isBoss')
-      const dmg    = isBoss ? 1 : Phaser.Math.Between(1, 2)
+      const dmg    = isBoss ? 2 : Phaser.Math.Between(1, 2)
       const newHp  = e.getData('hp') - dmg
       e.setData('hp', newHp)
 
@@ -1383,7 +1755,7 @@ export class GameScene extends Phaser.Scene {
     const now = this.time.now
     if (now - this._lastDmgTime < DMG_COOLDOWN) return
     this._lastDmgTime = now
-    this._takeDamage(10 + this.year * 2)
+    this._takeDamage(4 + Math.floor(this.year * 0.5))
     const dir = player.x < enemy.x ? -1 : 1
     player.setVelocityX(dir * 320).setVelocityY(-170)
   }
@@ -1409,8 +1781,8 @@ export class GameScene extends Phaser.Scene {
     } else {
       const key = pickup.getData('pickupKey')
       if (key === 'pickup_hp') {
-        GS.health = Math.min(GS.maxHealth, GS.health + 25)
-        this._showFloat(player.x, player.y - 35, '+25 HP', '#44ff88', 12)
+        GS.health = Math.min(GS.maxHealth, GS.health + 35)
+        this._showFloat(player.x, player.y - 35, '+35 HP', '#44ff88', 12)
         this._particles.setPosition(player.x, player.y)
         this._particles.setParticleTint(0x44ff88)
         this._particles.explode(10)
@@ -1433,7 +1805,7 @@ export class GameScene extends Phaser.Scene {
     }
     this._lastDmgTime = now
     proj.destroy()
-    this._takeDamage(14 + this.year * 4)
+    this._takeDamage(5)
     this._particles.setPosition(player.x, player.y)
     this._particles.setParticleTint(0xff4444)
     this._particles.explode(12)
@@ -1504,11 +1876,12 @@ export class GameScene extends Phaser.Scene {
     GS.score += 300 + this._killedThisLevel * 20
     GS.cgpa   = Math.min(10.0, GS.cgpa + 0.3)
     GS.year   = this.year + 1
+    GS.health = Math.min(GS.maxHealth, GS.health + 40)
 
     const W = this.scale.width, H = this.scale.height
     this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.55).setScrollFactor(0).setDepth(90)
 
-    const yearNames = ['YEAR 1 CLEARED!', 'YEAR 2 CLEARED!', 'YEAR 3 + BOSS CLEARED!']
+    const yearNames = ['YEAR 1 CLEARED!', 'YEAR 2 CLEARED!', 'YEAR 3 + BOSS CLEARED!', 'THE JOURNEY ENDS...']
     this.add.text(W / 2, H / 2 - 25, yearNames[this.year] || 'CLEARED!', {
       fontFamily: '"Nunito", sans-serif', fontSize: `${Math.floor(W / 20)}px`, color: '#ffcc44',
     }).setScrollFactor(0).setDepth(99).setOrigin(0.5)
@@ -1518,7 +1891,7 @@ export class GameScene extends Phaser.Scene {
     }).setScrollFactor(0).setDepth(99).setOrigin(0.5)
 
     this.time.delayedCall(2600, () => {
-      if (this.year < 2) {
+      if (this.year < 3) {
         this.scene.pause('GameScene')
         this.scene.launch('YearTransition', { year: this.year + 1, score: GS.score })
       } else {
@@ -1529,7 +1902,11 @@ export class GameScene extends Phaser.Scene {
 
   _finishGame() {
     this.scene.stop()
-    this.scene.start('BTechEnding')
+    if (this.year >= 3) {
+      this.scene.start('SIFinaleBridge')
+    } else {
+      this.scene.start('BTechEnding')
+    }
   }
 
   // ── Floating text ─────────────────────────────────────────────────────────
