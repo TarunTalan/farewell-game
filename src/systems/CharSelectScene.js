@@ -783,7 +783,7 @@ export class CharSelectScene extends Phaser.Scene {
 
     this.time.delayedCall(1600, () => {
       this.cameras.main.fadeOut(700, 0, 0, 0)
-      this.time.delayedCall(700, () => this.scene.start('GameScene'))
+      this.time.delayedCall(700, () => this.scene.start('GameScene', { year: 0, resetState: true }))
     })
   }
 

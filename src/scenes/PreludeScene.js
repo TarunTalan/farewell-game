@@ -65,6 +65,20 @@ export class PreludeScene extends Phaser.Scene {
     this._buildAllTextures()
     this.cameras.main.fadeIn(1400, 0, 0, 0)
     this._phase1_labScene()
+
+    // Skip button
+    const skipBtn = this.add.text(this.W - 20, 20, 'SKIP INTRO ⏭', {
+      fontFamily: '"Nunito", sans-serif',
+      fontSize: '14px',
+      fill: '#ffffff',
+      backgroundColor: '#222222',
+      padding: { x: 10, y: 6 }
+    }).setOrigin(1, 0).setDepth(999).setInteractive()
+    
+    skipBtn.on('pointerdown', () => {
+      this.cameras.main.fadeOut(300, 0, 0, 0)
+      this.time.delayedCall(300, () => this.scene.start('CharSelectScene'))
+    })
   }
 
   _replaceGeneratedTexture(g, key, width, height) {

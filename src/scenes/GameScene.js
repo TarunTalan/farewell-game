@@ -1346,59 +1346,147 @@ export class GameScene extends Phaser.Scene {
 
   // ── Mobile controls ───────────────────────────────────────────────────────
   _buildMobileControls(W, H) {
-    const bw = Math.min(W * 0.12, 52)
-    const bh = Math.min(H * 0.16, 44)
-    const gap = bw * 0.22
-    const pad = 10
-    const by  = H - bh - pad
+    const isPortrait = H > W
+    // Sizes - relative to the smaller dimension for consistency
+    const baseDim = Math.min(W, H)
+    const dpadR = Math.floor(baseDim * (isPortrait ? 0.08 : 0.075))
+    const jumpR = Math.floor(baseDim * (isPortrait ? 0.07 : 0.065))
+    const fireR = Math.floor(baseDim * (isPortrait ? 0.12 : 0.11))
+    
+    // Padding
+    const padX = Math.floor(W * (isPortrait ? 0.06 : 0.05))
+    const padY = Math.floor(H * (isPortrait ? 0.08 : 0.06))
 
-    // Left cluster
-    const lx = pad
-    const rx = pad + bw + gap
+    // D-pad centre (bottom-left)
+    const dCX = padX + dpadR * 1.5
+    const dCY = H - padY - dpadR
 
-    // Right cluster
-    const jx = W - bw * 2 - gap - pad
-    const ax = W - bw - pad
+    // Jump button — upper-right (above Attack Wheel)
+    const jCX = W - padX - jumpR
+    const jCY = H - padY - (fireR * 2.3) - jumpR * 0.8
 
-    this._btnLeft   = { x: lx, y: by, w: bw, h: bh }
-    this._btnRight  = { x: rx, y: by, w: bw, h: bh }
-    this._btnJump   = { x: jx, y: by, w: bw, h: bh }
-    this._btnAttack = { x: ax, y: by, w: bw, h: bh }
+    // FIRE button — bottom-right
+    const fCX = W - padX - fireR
+    const fCY = H - padY - fireR
 
-    this._drawMobileButtons(W, H)
+    // Hit-rects (invisible areas for touch detection)
+    this._btnLeft   = { x: dCX - dpadR * 2.8, y: dCY - dpadR * 1.5, w: dpadR * 2.5, h: dpadR * 3 }
+    this._btnRight  = { x: dCX + dpadR * 0.3, y: dCY - dpadR * 1.5, w: dpadR * 2.5, h: dpadR * 3 }
+    this._btnJump   = { x: jCX - jumpR * 1.5, y: jCY - jumpR * 1.5, w: jumpR * 3.0, h: jumpR * 3 }
+    this._btnAttack = { x: fCX - fireR,        y: fCY - fireR,        w: fireR * 2.0, h: fireR * 2 }
+
+    this._drawMobileButtons(W, H, dCX, dCY, jCX, jCY, fCX, fCY, dpadR, jumpR, fireR)
     this._setupTouchInput(W, H)
   }
 
-  _drawMobileButtons(W, H) {
-    // D-pad BG disc left
-    const lBase = this.add.circle(
-      this._btnLeft.x + this._btnLeft.w + (this._btnRight.x - this._btnLeft.x - this._btnLeft.w) / 2,
-      this._btnLeft.y + this._btnLeft.h / 2,
-      this._btnLeft.w * 1.1, 0x000000, 0.2
-    ).setScrollFactor(0).setDepth(98)
+  _drawMobileButtons(W, H, dCX, dCY, jCX, jCY, fCX, fCY, dpadR, jumpR, fireR) {
+    const depth = 99
+    const pal = PALETTES[this.year] || PALETTES[0]
 
-    const makeBtn = (rect, label, bgColor) => {
-      const btn = this.add.graphics().setScrollFactor(0).setDepth(99)
-      btn.fillStyle(bgColor, 0.40)
-      btn.fillRoundedRect(rect.x, rect.y, rect.w, rect.h, 8)
-      btn.lineStyle(1.5, bgColor, 0.7)
-      btn.strokeRoundedRect(rect.x, rect.y, rect.w, rect.h, 8)
-      this.add.text(
-        rect.x + rect.w / 2,
-        rect.y + rect.h / 2,
-        label, {
-          fontFamily: '"Nunito", sans-serif',
-          fontSize: `${Math.floor(rect.w * 0.40)}px`,
-          color: '#ffffff',
-        }
-      ).setScrollFactor(0).setDepth(100).setOrigin(0.5)
-      return btn
+    // Helper: plain circular button
+    const makeBtn = (cx, cy, r, fill, border, label, fs) => {
+      const g = this.add.graphics().setScrollFactor(0).setDepth(depth)
+      g.fillStyle(0x000000, 0.40)
+      g.fillCircle(cx, cy, r)
+      g.fillStyle(fill, 0.50)
+      g.fillCircle(cx, cy, r)
+      g.lineStyle(2, border, 0.8)
+      g.strokeCircle(cx, cy, r)
+      
+      // Visual centering: unicode arrows often need a slight Y offset
+      const yOff = (label === '▲') ? -3 : -1
+      this.add.text(cx, cy + yOff, label, {
+        fontFamily: '"Nunito", sans-serif', fontSize: `${fs}px`,
+        color: '#ffffff', stroke: '#000000', strokeThickness: 2,
+      }).setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5)
     }
 
-    this._gfxLeft   = makeBtn(this._btnLeft,   '◀', 0x4466ff)
-    this._gfxRight  = makeBtn(this._btnRight,  '▶', 0x4466ff)
-    this._gfxJump   = makeBtn(this._btnJump,   '▲', 0x44cc88)
-    this._gfxAttack = makeBtn(this._btnAttack, '⚔', 0xff4433)
+    // Left / Right arrows (D-pad bg removed)
+    const btnCol = pal.accent
+    makeBtn(dCX - dpadR * 1.5, dCY, dpadR, 0x222222, btnCol, '◀', Math.floor(dpadR * 0.9))
+    makeBtn(dCX + dpadR * 1.5, dCY, dpadR, 0x222222, btnCol, '▶', Math.floor(dpadR * 0.9))
+
+    // ── Jump button ──────────────────────────────────────────────────
+    makeBtn(jCX, jCY, jumpR, 0x222222, btnCol, '▲', Math.floor(jumpR * 0.8))
+
+    // ── 360° Attack Wheel ───────────────────────────────────────────
+    this._createDOMAttackWheel(fCX, fCY, fireR)
+  }
+
+  _createDOMAttackWheel(cx, cy, r) {
+    // Clean up existing
+    document.getElementById('game-attack-wheel')?.remove()
+
+    this._attackAngle = 0
+    this._attackActive = false
+    const pal = PALETTES[this.year]
+    const accent = pal.accent
+
+    const size = r * 2.2
+    const wrap = document.createElement('div')
+    wrap.id = 'game-attack-wheel'
+    Object.assign(wrap.style, {
+      position: 'absolute', left: (cx - size/2) + 'px', top: (cy - size/2) + 'px',
+      width: size + 'px', height: size + 'px', zIndex: '1000', userSelect: 'none', touchAction: 'none'
+    })
+
+    const base = document.createElement('div')
+    Object.assign(base.style, {
+      width: '100%', height: '100%', borderRadius: '50%',
+      background: 'rgba(0,0,0,0.4)', border: `2px solid ${accent}88`,
+      boxShadow: `0 0 15px ${accent}44`, position: 'relative'
+    })
+
+    const knob = document.createElement('div')
+    const kr = r * 0.45
+    Object.assign(knob.style, {
+      width: (kr*2)+'px', height: (kr*2)+'px', borderRadius: '50%',
+      background: `radial-gradient(circle, ${accent}, #000)`,
+      border: '2px solid #fff', position: 'absolute',
+      left: (size/2 - kr)+'px', top: (size/2 - kr)+'px', transition: 'transform 0.1s',
+      boxShadow: `0 0 10px ${accent}`
+    })
+
+    // Inner arrow icon removed as requested
+
+
+    base.appendChild(knob)
+    wrap.appendChild(base)
+    this.game.canvas.parentNode.appendChild(wrap)
+
+    const updatePos = (clientX, clientY) => {
+      const rect = wrap.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+      const angle = Math.atan2(clientY - centerY, clientX - centerX)
+      this._attackAngle = angle
+      
+      const dist = Math.min(r * 0.6, Math.sqrt((clientX-centerX)**2 + (clientY-centerY)**2))
+      const kx = (size/2 - kr) + Math.cos(angle) * dist
+      const ky = (size/2 - kr) + Math.sin(angle) * dist
+      knob.style.left = kx + 'px'
+      knob.style.top = ky + 'px'
+      knob.style.transform = `rotate(${angle}rad)`
+    }
+
+    wrap.addEventListener('touchstart', e => {
+      e.preventDefault()
+      this._attackActive = true
+      updatePos(e.touches[0].clientX, e.touches[0].clientY)
+    }, { passive: false })
+
+    window.addEventListener('touchmove', e => {
+      if (!this._attackActive) return
+      updatePos(e.touches[0].clientX, e.touches[0].clientY)
+    }, { passive: false })
+
+    const end = () => {
+      this._attackActive = false
+      knob.style.left = (size/2 - kr)+'px'
+      knob.style.top = (size/2 - kr)+'px'
+    }
+    window.addEventListener('touchend', end)
+    window.addEventListener('touchcancel', end)
   }
 
   _setupTouchInput(W, H) {
@@ -1430,7 +1518,7 @@ export class GameScene extends Phaser.Scene {
     if (this._levelComplete) return
 
     // Parallax BG scroll
-    if (this._bgTile) this._bgTile.tilePositionX = this.cameras.main.scrollX * 0.07
+    if (this._bgTile) this._bgTile.tilePositionX = this.cameras.main.scrollX * 0.25
 
     this._updatePlayer(time, delta)
     this._updateEnemies(time)
@@ -1484,7 +1572,7 @@ export class GameScene extends Phaser.Scene {
     // Attack
     const wantAttack = Phaser.Input.Keyboard.JustDown(this.atkKey)
                     || Phaser.Input.Keyboard.JustDown(this.atkKey2)
-                    || this._touchAttack
+                    || this._attackActive
 
     if (wantAttack && time - (this._lastAttackTime || 0) > 280) {
       this._lastAttackTime = time
@@ -1500,72 +1588,77 @@ export class GameScene extends Phaser.Scene {
   }
 
   _doAttack(time) {
-    const pal   = PALETTES[this.year]
-    const range = this._powerupActive && this._powerupType === 'hack' ? 140 : 85
-    const dir   = this.player.flipX ? -1 : 1
+    const pal = PALETTES[this.year]
+    const angle = this._attackAngle || 0
+    const dirX  = Math.cos(angle)
+    const dirY  = Math.sin(angle)
+    
+    if (Math.abs(dirX) > 0.1) this.player.setFlipX(dirX < 0)
 
-    // Slash VFX
-    const slash = this.add.graphics().setDepth(15)
-    slash.lineStyle(3.5, pal.accent, 0.9)
-    slash.lineBetween(
-      this.player.x, this.player.y - 8,
-      this.player.x + dir * range, this.player.y + 12
-    )
-    slash.lineStyle(1.5, 0xffffff, 0.5)
-    slash.lineBetween(
-      this.player.x + dir * 10, this.player.y - 5,
-      this.player.x + dir * range * 0.9, this.player.y + 8
-    )
-    this.tweens.add({ targets: slash, alpha: 0, duration: 140, onComplete: () => slash.destroy() })
+    const px = this.player.x + dirX * 22
+    const py = this.player.y - 10 + dirY * 5
 
-    // Particle burst from fist
-    this._particles.setPosition(this.player.x + dir * 30, this.player.y)
-    this._particles.setParticleTint(pal.accent)
-    this._particles.explode(10)
+    // ── 360° Instant Laser Beam ─────────────────────────────────────
+    const worldW = this.physics.world.bounds.width
+    const worldH = this.physics.world.bounds.height
+    const distToEdge = Math.max(worldW, worldH) * 1.5
+    const ex = px + dirX * distToEdge
+    const ey = py + dirY * distToEdge
 
-    let hitAny = false
-    this.enemies.getChildren().forEach(e => {
-      if (!e.active || e.getData('hp') <= 0) return
-      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y)
-      const inArc = Math.sign(e.x - this.player.x) === dir || dist < 40
-      if (dist > range + e.width / 2 || !inArc) return
+    const beam = this.add.graphics().setDepth(16)
+    // 4-layer glow
+    beam.lineStyle(22, pal.accent, 0.10).lineBetween(px, py, ex, ey)
+    beam.lineStyle(9,  pal.accent, 0.40).lineBetween(px, py, ex, ey)
+    beam.lineStyle(4,  pal.accent, 0.75).lineBetween(px, py, ex, ey)
+    beam.lineStyle(2,  0xffffff, 1.0).lineBetween(px, py, ex, ey)
 
-      hitAny = true
-      const isBoss = e.getData('isBoss')
-      const dmg    = isBoss ? 2 : Phaser.Math.Between(1, 2)
-      const newHp  = e.getData('hp') - dmg
-      e.setData('hp', newHp)
-
-      // Hit flash
-      e.setTint(0xffffff)
-      this.time.delayedCall(90, () => { if (e.active) e.clearTint() })
-      e.setVelocityX(dir * 240)
-
-      this._showFloat(e.x, e.y - 25, `-${dmg}`, '#ff5555')
-      GS.score += 10
-
-      // Update HP bar
-      if (!isBoss) {
-        const maxHp = e.getData('maxHp')
-        const frac  = Math.max(0, newHp / maxHp)
-        const barFg = e.getData('barFg')
-        if (barFg) barFg.width = (e.width + 4) * frac
-      } else {
-        if (this._bossHpBar) {
-          const frac = Math.max(0, newHp / BOSS_CFG.hp)
-          this._bossHpBar.width = 216 * frac
-        }
-      }
-
-      if (newHp <= 0) this._killEnemy(e)
+    this.tweens.add({
+      targets: beam, alpha: 0, duration: 160, ease: 'Power3',
+      onComplete: () => beam.destroy()
     })
 
-    if (!hitAny) this._showFloat(this.player.x + dir * 50, this.player.y - 10, 'miss!', '#556688')
+    // Muzzle flash circle removed as requested
+
+
+    this.cameras.main.shake(50, 0.005)
+
+    const laserDmg = this._powerupActive && this._powerupType === 'hack' ? 4 : 2
+    const beamLine = new Phaser.Geom.Line(px, py, ex, ey)
+
+    this.enemies.getChildren().forEach(e => {
+      if (!e.active || e.getData('hp') <= 0) return
+      const rect = new Phaser.Geom.Rectangle(e.x - e.width/2, e.y - e.height/2, e.width, e.height)
+      if (Phaser.Geom.Intersects.LineToRectangle(beamLine, rect)) {
+        const isBoss = e.getData('isBoss'), newHp = e.getData('hp') - laserDmg
+        e.setData('hp', newHp).setTint(0x00ffff)
+        this.time.delayedCall(100, () => { if (e.active) e.clearTint() })
+        e.setVelocity(dirX * 180, dirY * 180)
+        this._showFloat(e.x, e.y - 28, `-${laserDmg}`, '#00ffff')
+        GS.score += 10
+        if (navigator.vibrate) navigator.vibrate(25)
+
+        const imp = this.add.graphics().setDepth(17)
+        imp.fillStyle(0xffffff, 0.9).fillCircle(e.x, e.y, 11)
+        imp.fillStyle(pal.accent, 0.7).fillCircle(e.x, e.y, 7)
+        this.tweens.add({ targets: imp, scale: 2.4, alpha: 0, duration: 200, onComplete: () => imp.destroy() })
+        this._particles.setPosition(e.x, e.y).setParticleTint(pal.accent).explode(10)
+
+        if (!isBoss) {
+          const barFg = e.getData('barFg')
+          if (barFg) barFg.width = (e.width + 4) * Math.max(0, newHp / e.getData('maxHp'))
+        } else if (this._bossHpBar) {
+          this._bossHpBar.width = 216 * Math.max(0, newHp / BOSS_CFG.hp)
+        }
+        if (newHp <= 0) this._killEnemy(e)
+      }
+    })
   }
 
   _killEnemy(e) {
     const isBoss = e.getData('isBoss')
     const pal    = PALETTES[this.year]
+
+    if (!isBoss && navigator.vibrate) navigator.vibrate(30)
 
     // Destroy HUD elements
     ;['barBg', 'barFg', 'lbl'].forEach(k => {
@@ -1607,6 +1700,8 @@ export class GameScene extends Phaser.Scene {
   _onBossDefeated() {
     if (this._levelComplete) return
     this._levelComplete = true
+
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400])
 
     this._bossEntity?.destroy()
     this._bossEntity = null
@@ -1817,6 +1912,8 @@ export class GameScene extends Phaser.Scene {
     GS.health = Math.max(0, GS.health - amount)
     GS.cgpa   = Math.max(4.0, GS.cgpa - 0.04)
 
+    if (navigator.vibrate) navigator.vibrate([80, 40, 80])
+
     this._showFloat(this.player.x, this.player.y - 28, `-${amount}`, '#ff4444')
     this.cameras.main.shake(110, 0.014)
     this.cameras.main.flash(70, 255, 30, 30)
@@ -1902,10 +1999,39 @@ export class GameScene extends Phaser.Scene {
 
   _finishGame() {
     this.scene.stop()
-    if (this.year >= 3) {
-      this.scene.start('SIFinaleBridge')
-    } else {
-      this.scene.start('BTechEnding')
+    const endscreen = document.getElementById('endscreen-overlay')
+    if (endscreen) {
+      endscreen.classList.add('active')
+      // Simple CSS confetti
+      const colors = ['#f0c040', '#70d0ff', '#ff70b0', '#50ff90', '#ff9070']
+      for (let i = 0; i < 80; i++) {
+        const el = document.createElement('div')
+        el.style.cssText = `
+          position:fixed;
+          left:${Math.random() * 100}vw;
+          top:-10px;
+          width:${6 + Math.random() * 8}px;
+          height:${6 + Math.random() * 8}px;
+          background:${colors[Math.floor(Math.random() * colors.length)]};
+          border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+          z-index:300;
+          pointer-events:none;
+          animation: confettiFall ${1.5 + Math.random() * 2}s ease-in forwards;
+          animation-delay:${Math.random() * 1.5}s;
+        `
+        document.body.appendChild(el)
+        setTimeout(() => el.remove(), 4000)
+      }
+      if (!document.getElementById('confetti-style')) {
+        const style = document.createElement('style')
+        style.id = 'confetti-style'
+        style.textContent = `
+          @keyframes confettiFall {
+            to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+          }
+        `
+        document.head.appendChild(style)
+      }
     }
   }
 
