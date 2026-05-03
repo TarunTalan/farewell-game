@@ -9,6 +9,7 @@ export const PALETTES = [
     ground: 0x2d4a8a,
     accent: 0x5b8cff,
     fog: 0x0a1235,
+    particleA: 0x6688cc,
     name: 'YEAR 1 - CONFUSION',
   },
   {
@@ -17,6 +18,7 @@ export const PALETTES = [
     ground: 0x1a5c1a,
     accent: 0x39ff14,
     fog: 0x061806,
+    particleA: 0x44cc44,
     name: 'YEAR 2 - LAB HELL',
   },
   {
@@ -25,6 +27,7 @@ export const PALETTES = [
     ground: 0x7a4a00,
     accent: 0xff8800,
     fog: 0x1a0d00,
+    particleA: 0xff6600,
     name: 'YEAR 3 - PROJECT PANIC',
   },
   {
@@ -33,6 +36,7 @@ export const PALETTES = [
     ground: 0x8a6520,
     accent: 0xffdd66,
     fog: 0x1a0a00,
+    particleA: 0xffcc44,
     name: 'YEAR 4 - THE FINAL WALK',
   },
 ]

@@ -62,7 +62,9 @@ export class DialogueSystem {
     // Inject runtime variables like {senior_name}
     let text = beat.text
     if (this.gameState.selectedSenior) {
-      text = text.replace('{senior_name}', this.gameState.selectedSenior.name)
+      const senior = SENIORS.find(s => s.id === this.gameState.selectedSenior)
+      const name = senior ? senior.name : 'Senior'
+      text = text.replace('{senior_name}', name)
     }
 
     // Portrait

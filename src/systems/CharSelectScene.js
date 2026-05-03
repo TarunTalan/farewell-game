@@ -37,11 +37,11 @@ export class CharSelectScene extends Phaser.Scene {
     this.CARD_H    = Math.round(this.CARD_W * 1.55)
     this.CARD_STEP = Math.round(this.CARD_W * 0.58)
     this.TAPE_H    = Math.round(this.H * 0.055)
-    this.AVATAR_R  = Math.round(this.CARD_W * 0.18)
+    this.AVATAR_R  = Math.round(this.CARD_W * 0.28) // Further increased for maximum visibility
 
     this.REEL_Y    = this.H * 0.47
     this.INFO_Y    = this.REEL_Y + this.CARD_H * 0.54 + this.TAPE_H + this.H * 0.035
-    this.BTN_Y     = this.H * 0.915
+    this.BTN_Y     = this.H * 0.88
 
     this._index        = 0
     this._scrolling    = false
@@ -306,40 +306,27 @@ export class CharSelectScene extends Phaser.Scene {
       { tl: 14, tr: 14, bl: 0, br: 0 }
     )
 
-    // Number badge
-    const badgeW = Math.round(CARD_W * 0.2)
-    const badgeH = Math.round(CARD_H * 0.065)
-    const badgeY = -CARD_H / 2 + Math.round(CARD_H * 0.065)
-    const numBadge = this.add.graphics()
-    numBadge.fillStyle(ac.border, 0.2)
-    numBadge.fillRoundedRect(-CARD_W / 2 + 10, badgeY, badgeW, badgeH, 5)
-
-    const numTxt = this.add.text(
-      -CARD_W / 2 + 10 + badgeW / 2,
-      badgeY + badgeH / 2,
-      String(ri + 1).padStart(2, '0'),
-      { fontFamily: '"Nunito", sans-serif', fontSize: this._fs(3.5, 11, 16), fill: ac.text, fontStyle: 'bold' }
-    ).setOrigin(0.5)
+    // (Number badge removed)
 
     // ── Avatar
-    const avatarY = -CARD_H / 2 + Math.round(CARD_H * 0.31)
+    const avatarY = -CARD_H / 2 + Math.round(CARD_H * 0.35)
 
     const pulseRing = this.add.graphics()
     pulseRing.lineStyle(1.5, ac.border, 0.18)
     pulseRing.strokeCircle(0, avatarY, AVATAR_R + Math.round(AVATAR_R * 0.45))
 
-    const glowFill = this.add.circle(0, avatarY, AVATAR_R + 10, ac.border, 0.08)
+    const glowFill = this.add.circle(0, avatarY, AVATAR_R + 15, ac.border, 0.12)
 
     const avatarCircle = this.add.graphics()
     avatarCircle.fillStyle(ac.bg, 1)
     avatarCircle.fillCircle(0, avatarY, AVATAR_R)
-    avatarCircle.lineStyle(3, ac.border, 0.9)
+    avatarCircle.lineStyle(4, ac.border, 0.95)
     avatarCircle.strokeCircle(0, avatarY, AVATAR_R)
 
     // Spinning dashed ring
     const spinRing = this.add.graphics()
-    const dashCount = 12
-    const spinR = AVATAR_R + Math.round(AVATAR_R * 0.22)
+    const dashCount = 14
+    const spinR = AVATAR_R + Math.round(AVATAR_R * 0.28)
     for (let d = 0; d < dashCount; d++) {
       const a1 = (d / dashCount) * Math.PI * 2
       const a2 = a1 + (Math.PI * 2 / dashCount) * 0.55
@@ -361,8 +348,19 @@ export class CharSelectScene extends Phaser.Scene {
 
     let avatarDisplay
     if (this.textures.exists(s.id)) {
-      avatarDisplay = this.add.image(0, avatarY, s.id)
-        .setDisplaySize(AVATAR_R * 2 - 4, AVATAR_R * 2 - 4).setOrigin(0.5)
+      avatarDisplay = this.add.image(0, avatarY, s.id).setOrigin(0.5)
+      
+      // Scale to cover the circle (aspect ratio handling)
+      const scale = (AVATAR_R * 2) / Math.min(avatarDisplay.width, avatarDisplay.height)
+      avatarDisplay.setScale(scale)
+
+      // Circular Mask
+      const maskShape = this.make.graphics()
+      maskShape.fillStyle(0xffffff)
+      maskShape.fillCircle(0, 0, AVATAR_R - 2)
+      const mask = maskShape.createGeometryMask()
+      avatarDisplay.setMask(mask)
+      cont._avatarMask = maskShape
     } else {
       avatarDisplay = this.add.text(0, avatarY, s.name[0], {
         fontFamily: '"Rajdhani", "Arial Black", sans-serif',
@@ -398,8 +396,27 @@ export class CharSelectScene extends Phaser.Scene {
       letterSpacing: 3,
     }).setOrigin(0.5)
 
-    // ── Divider with diamond
-    const divY = titleY2 + titleSize + 10
+    // ── Tech Stack Badge
+    const techY = titleY2 + titleSize + 12
+    const techBg = this.add.graphics()
+    const techTag = s.techStack || 'DEVELOPER'
+    const techSize = this._fs(2.4, 8, 11)
+    const techW = techTag.length * 6 + 12
+    techBg.fillStyle(ac.border, 0.2)
+    techBg.fillRoundedRect(-techW/2, techY - 8, techW, 16, 4)
+    techBg.lineStyle(1, ac.border, 0.5)
+    techBg.strokeRoundedRect(-techW/2, techY - 8, techW, 16, 4)
+    
+    const techTxt = this.add.text(0, techY, techTag.toUpperCase(), {
+      fontFamily: '"Nunito", sans-serif',
+      fontSize: techSize,
+      fill: ac.text,
+      fontStyle: 'bold',
+      letterSpacing: 1
+    }).setOrigin(0.5)
+
+    // ── Divider with diamond (shifted down)
+    const divY = techY + 16
     const divG = this.add.graphics()
     divG.lineStyle(1, ac.border, 0.35)
     divG.lineBetween(-CARD_W * 0.38, divY, CARD_W * 0.38, divY)
@@ -408,31 +425,54 @@ export class CharSelectScene extends Phaser.Scene {
     diamond.fillTriangle(0, divY - 4, 4, divY, 0, divY + 4)
     diamond.fillTriangle(0, divY - 4, -4, divY, 0, divY + 4)
 
-    // ── Bio
-    const bioY   = divY + 12
+    // ── Funny Line (Quotes)
+    const funnyY = divY + 10
+    const funnyTxt = this.add.text(0, funnyY, s.funnyLine ? `"${s.funnyLine}"` : '', {
+      fontFamily: '"Inter", sans-serif',
+      fontSize: this._fs(2.4, 8, 11),
+      fill: '#ead4aa',
+      fontStyle: 'italic',
+      align: 'center',
+      wordWrap: { width: CARD_W * 0.8 }
+    }).setOrigin(0.5, 0)
+
+    // ── Bio (More spacing)
+    const bioY   = funnyY + (s.funnyLine ? 24 : 10)
     const bioTxt = this.add.text(0, bioY, s.bio || s.desc || '', {
       fontFamily:  '"Nunito", sans-serif',
-      fontSize:    this._fs(2.8, 9, 13),
+      fontSize:    this._fs(2.6, 8, 12),
       fill:        '#c8a882',
       align:       'center',
       wordWrap:    { width: CARD_W - Math.round(CARD_W * 0.18) },
-      lineSpacing: 4,
+      lineSpacing: 3,
     }).setOrigin(0.5, 0)
 
-    // ── Stats
-    const statsBaseY = CARD_H / 2 - Math.round(CARD_H * 0.16)
+    // ── Stats (Shifted down to avoid overlap)
+    const statsBaseY = CARD_H / 2 - Math.round(CARD_H * 0.12)
     const barW       = Math.round(CARD_W * 0.24)
     const barH       = Math.round(CARD_H * 0.022)
-    const statDefs   = [
-      { label: 'PWR', val: s.stat?.power  ?? 7, ox: -Math.round(CARD_W * 0.3) },
-      { label: 'SPD', val: s.stat?.speed  ?? 7, ox: 0                          },
-      { label: 'WIS', val: s.stat?.wisdom ?? 7, ox:  Math.round(CARD_W * 0.3) },
-    ]
+    
+    const statKeys = Object.keys(s.stat || {})
+    const statDefs = statKeys.slice(0, 3).map((key, i) => ({
+      label: key.toUpperCase(),
+      val: s.stat[key],
+      ox: (i - 1) * Math.round(CARD_W * 0.3)
+    }))
+
+    // If no stats, fallback
+    if (statDefs.length === 0) {
+      statDefs.push(
+        { label: 'AURA',   val: 9, ox: -Math.round(CARD_W * 0.3) },
+        { label: 'RIZZ',   val: 8, ox: 0                          },
+        { label: 'AMEERI', val: 7, ox:  Math.round(CARD_W * 0.3) }
+      )
+    }
+
     const statEls = []
     statDefs.forEach(({ label, val, ox }) => {
       const lbl = this.add.text(ox, statsBaseY, label, {
         fontFamily: '"Nunito", sans-serif',
-        fontSize:   this._fs(2.5, 8, 11),
+        fontSize:   this._fs(2.2, 7, 10),
         fill:       '#7a6040',
         fontStyle:  'bold',
         align:      'center',
@@ -475,45 +515,39 @@ export class CharSelectScene extends Phaser.Scene {
 
     cont.add([
       shadow, body, highlight, border, topBar,
-      numBadge, numTxt,
       pulseRing, glowFill, avatarCircle, spinRing, avatarDisplay,
-      nameTxt, titleTxt, divG, diamond, bioTxt,
+      nameTxt, titleTxt, techBg, techTxt, divG, diamond, funnyTxt, bioTxt,
       ...statEls, tapHint,
     ])
     cont._accent = ac
     return cont
   }
 
+  update() {
+    // Sync masks with containers (since masks are world-space)
+    this._cardSlots.forEach(({ container }) => {
+      if (container._avatarMask) {
+        const avatarY = -this.CARD_H / 2 + Math.round(this.CARD_H * 0.35)
+        container._avatarMask.x = container.x
+        container._avatarMask.y = container.y + avatarY
+      }
+    })
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // UI
   // ═══════════════════════════════════════════════════════════════════════════
   _buildUI() {
-    const { W, H, INFO_Y, BTN_Y } = this
+    const { W, H, BTN_Y } = this
 
     this._leftBtn  = this._navBtn(Math.round(W * 0.07), H * 0.47, '‹', -1)
     this._rightBtn = this._navBtn(Math.round(W * 0.93), H * 0.47, '›',  1)
 
-    // Name
-    this._infoName = this.add.text(W / 2, INFO_Y, '', {
-      fontFamily: '"Rajdhani", "Arial Black", sans-serif',
-      fontSize:   this._fs(6.5, 22, 36),
-      fontStyle:  'bold',
-      fill:       '#ffffff',
-      align:      'center',
-    }).setOrigin(0.5).setDepth(100)
 
-    // Subtitle
-    this._infoSub = this.add.text(W / 2, INFO_Y + this._fs(6.5, 22, 36) + 6, '', {
-      fontFamily:    '"Nunito", sans-serif',
-      fontSize:      this._fs(3.2, 11, 16),
-      fill:          '#ff6600',
-      align:         'center',
-      letterSpacing: 4,
-    }).setOrigin(0.5).setDepth(100)
 
     // Dots
     this._dots      = []
-    const dotY      = INFO_Y + this._fs(6.5, 22, 36) + this._fs(3.2, 11, 16) + 22
+    const dotY      = this.REEL_Y + this.CARD_H * 0.54 + this.TAPE_H + this.H * 0.02
     const dotSpacing = Math.min(18, W * 0.035)
     const dotsW     = (N - 1) * dotSpacing
     SENIORS.forEach((s, i) => {
@@ -529,7 +563,8 @@ export class CharSelectScene extends Phaser.Scene {
       this._dots.push(dot)
     })
 
-    // Confirm button
+    // Confirm button (above the dots)
+    const confirmY = BTN_Y
     this._confirmBg = this.add.graphics().setDepth(100)
     this._drawConfirmBg(0xff6600, false)
 
@@ -718,19 +753,6 @@ export class CharSelectScene extends Phaser.Scene {
     const s  = SENIORS[this._index]
     const ac = CARD_ACCENTS[this._index % CARD_ACCENTS.length]
 
-    this.tweens.add({
-      targets: [this._infoName, this._infoSub],
-      alpha: 0, duration: 80, ease: 'Linear',
-      onComplete: () => {
-        this._infoName.setText(s.name)
-        this._infoName.setStyle({ fill: '#ffffff' })
-        this._infoName.setShadow(0, 1, ac.glow, 14, true)
-        this._infoSub.setText(s.title.toUpperCase())
-        this._infoSub.setStyle({ fill: ac.text })
-        this.tweens.add({ targets: [this._infoName, this._infoSub], alpha: 1, duration: 180 })
-      }
-    })
-
     this._drawConfirmBg(ac.border, false)
     this._confirmTxt.setShadow(0, 2, ac.glow, 12, true)
 
@@ -783,7 +805,7 @@ export class CharSelectScene extends Phaser.Scene {
 
     this.time.delayedCall(1600, () => {
       this.cameras.main.fadeOut(700, 0, 0, 0)
-      this.time.delayedCall(700, () => this.scene.start('GameScene'))
+      this.time.delayedCall(700, () => this.scene.start('YearTransition', { year: 0, score: 0 }))
     })
   }
 

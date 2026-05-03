@@ -417,31 +417,72 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #0a0a1a;
+      background: linear-gradient(135deg, #0a0500, #1a0f00, #0d0800);
+      background-size: 400% 400%;
+      animation: gradientBG 10s ease infinite;
+    }
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
     }
     #endscreen-overlay.active { display: flex; }
-    #endscreen-title {
-      font-family: 'Nunito', sans-serif;
-      font-size: 14px;
-      color: #f0c040;
+    
+    #endscreen-card {
+      background: rgba(30, 20, 10, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 204, 68, 0.2);
+      border-radius: 24px;
+      padding: 48px;
       text-align: center;
-      margin-bottom: 16px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      max-width: 90%;
+      width: 500px;
+      animation: flyInEnd 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes flyInEnd {
+      from { opacity: 0; transform: translateY(40px) scale(0.9); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    
+    #endscreen-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 36px;
+      font-weight: 900;
+      color: #ffcc44;
+      text-transform: uppercase;
+      letter-spacing: 6px;
+      margin-bottom: 12px;
+      text-shadow: 0 0 20px rgba(255, 204, 68, 0.4);
     }
     #endscreen-sub {
-      font-family: 'Nunito', sans-serif;
-      font-size: 24px;
-      color: #a0a0d0;
-      margin-bottom: 32px;
+      font-family: 'Inter', sans-serif;
+      font-size: 18px;
+      color: #ead4aa;
+      line-height: 1.6;
+      margin-bottom: 40px;
     }
     #rsvp-btn {
       font-family: 'Nunito', sans-serif;
-      font-size: 10px;
-      background: #f0c040;
-      color: #0a0a1a;
+      font-size: 16px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #f0c040, #f09040);
+      color: #111;
       border: none;
-      padding: 16px 32px;
-      border-radius: 8px;
+      padding: 16px 48px;
+      border-radius: 50px;
       cursor: pointer;
+      box-shadow: 0 4px 15px rgba(240, 192, 64, 0.4);
+      transition: all 0.3s ease;
+      letter-spacing: 1px;
+    }
+    #rsvp-btn:hover {
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 8px 25px rgba(240, 192, 64, 0.6);
+    }
+    #rsvp-btn:active {
+      transform: translateY(1px);
     }
 
     /* ── Video Screen ─────────────────────────────────────────── */
@@ -477,6 +518,140 @@
       border-radius: 4px;
       cursor: pointer;
       margin-top: 16px;
+    }
+
+    /* ── Memory Game Popup ─────────────────────────────────────── */
+    #memory-popup {
+      position: fixed;
+      inset: 0;
+      z-index: 180;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(4, 6, 15, 0.9);
+      backdrop-filter: blur(12px);
+    }
+    #memory-popup.active { display: flex; }
+    
+    #memory-card {
+      position: relative;
+      background: linear-gradient(135deg, rgba(20, 5, 30, 0.95), rgba(10, 2, 15, 0.95));
+      border: 1px solid rgba(255, 0, 170, 0.4);
+      border-radius: 16px;
+      padding: 40px 24px;
+      text-align: center;
+      box-shadow: 0 0 50px rgba(255, 0, 170, 0.15), inset 0 0 20px rgba(0, 229, 255, 0.05);
+      width: 90%;
+      max-width: 420px;
+      overflow: hidden;
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+    
+    /* Terminal scanline overlay */
+    #memory-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(transparent 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.9); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    
+    #memory-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 28px;
+      font-weight: 900;
+      color: #ff00aa;
+      margin-bottom: 8px;
+      letter-spacing: 4px;
+      text-shadow: 0 0 10px rgba(255, 0, 170, 0.6);
+      position: relative;
+    }
+    
+    #memory-prompt {
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      color: #8fa0b5;
+      margin-bottom: 32px;
+      position: relative;
+    }
+    
+    #memory-input {
+      background: rgba(20, 0, 30, 0.4);
+      border: none;
+      border-bottom: 2px solid #00e5ff;
+      color: #ffffff;
+      font-family: 'monospace';
+      font-size: 32px;
+      padding: 16px 12px;
+      width: 100%;
+      text-align: center;
+      margin-bottom: 24px;
+      outline: none;
+      letter-spacing: clamp(4px, 4vw, 12px);
+      transition: all 0.3s;
+      position: relative;
+    }
+    
+    #memory-input:focus {
+      background: rgba(40, 0, 60, 0.6);
+      box-shadow: 0 15px 15px -10px rgba(0, 229, 255, 0.4);
+      border-color: #ffffff;
+    }
+    
+    #memory-input::placeholder {
+      color: rgba(0, 229, 255, 0.2);
+    }
+
+    #memory-error {
+      font-family: 'Nunito', sans-serif;
+      color: #ff3366;
+      font-size: 14px;
+      font-weight: bold;
+      min-height: 20px;
+      margin-bottom: 24px;
+      text-shadow: 0 0 8px rgba(255, 51, 102, 0.6);
+      display: none;
+      position: relative;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    #memory-submit {
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      background: transparent;
+      color: #00e5ff;
+      border: 2px solid #00e5ff;
+      padding: 14px 40px;
+      border-radius: 8px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+    
+    #memory-submit:hover {
+      background: #00e5ff;
+      color: #04080f;
+      box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+      transform: translateY(-2px);
+    }
+    
+    #memory-submit:active { 
+      transform: translateY(1px); 
     }
 
     /* ── Shared Animations ─────────────────────────────────────── */
@@ -527,7 +702,7 @@
         <span class="placeholder-face">🧑</span>
       </div>
     </div>
-    <div id="dialogue-box" id="dialogue-box">
+    <div id="dialogue-box">
       <div id="dialogue-speaker">JUNIOR</div>
       <div id="dialogue-text"></div>
       <div id="dialogue-choices"></div>
@@ -550,33 +725,36 @@
     <button id="charselect-confirm">SELECT THIS SENIOR</button>
   </div>
 
-  <!-- ── Power-up Flash ────────────────────────────────────── -->
+   <!-- ── Power-up Flash ────────────────────────────────────── -->
   <div id="powerup-flash">
     <div id="powerup-title">⚡ JUNIOR SQUAD SUMMONED! ⚡</div>
     <div id="powerup-juniors"></div>
   </div>
 
-  <!-- ── Video Overlay ─────────────────────────────────────── -->
-  <div id="video-overlay">
-    <div id="video-container">
-      <!-- Replace src with your YouTube embed URL or <video> tag -->
-      <iframe
-        id="farewell-video"
-        src="about:blank"
-        allow="autoplay; fullscreen"
-        allowfullscreen>
-      </iframe>
+  <!-- ── Memory Game Popup ──────────────────────────────────── -->
+  <div id="memory-popup">
+    <div id="memory-card">
+      <div id="memory-title">SYSTEM OVERRIDE</div>
+      <div id="memory-prompt">Enter the light sequence (e.g. 1 3 2 1)</div>
+      <input type="text" id="memory-input" autocomplete="off" placeholder="----" maxlength="10">
+      <div id="memory-error">Sequence Incorrect. Recalibrating...</div>
+      <button id="memory-submit">VERIFY</button>
     </div>
-    <button id="video-skip">skip →</button>
   </div>
 
-  <!-- ── End Screen ────────────────────────────────────────── -->
+   <!-- ── End Screen ────────────────────────────────────────── -->
   <div id="endscreen-overlay">
-    <div id="endscreen-title">🎓 SEE YOU AT THE FAREWELL!</div>
-    <div id="endscreen-sub">You saved the juniors. Legends never leave.</div>
-    <button id="rsvp-btn">RSVP NOW</button>
+    <div id="endscreen-card">
+      <div id="endscreen-title">✨ SI FAREWELL 2026 ✨</div>
+      <div id="endscreen-sub">
+        You conquered 4 years of engineering.<br>
+        Your legacy in SI Lab is written in code.<br><br>
+        <strong>📅 9th May 2026 &nbsp;|&nbsp; 📍 SI Lab</strong><br><br>
+        See you there, legend. 🫡
+      </div>
+    </div>
   </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

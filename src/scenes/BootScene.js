@@ -10,11 +10,17 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this._bootStartTime = performance.now()
-    this._bootMinDuration = 4000
+    this._bootMinDuration = 3401
     this._bootFakeProgress = 0
     this._bootProgressTarget = 0
     this._bootLoadComplete = false
     this._bootCompleteTime = null
+
+    // Load the meme image explicitly
+    this.load.image('salman_meme', 'images/seniors/salman.png')
+    
+    // Load bootscene audio
+    this.load.audio('bootscene', 'audio/bootscene.mp3')
 
     this._buildLoadingScreen()
     this._loadBootAssets()
@@ -32,24 +38,20 @@ export class BootScene extends Phaser.Scene {
   _loadSeniorImages() {
     const placeholderPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEUAAACnej3aAAAAAXRSTlMAQObYZgAAAApJREFUCNdjYAAAAAIAAeIhvDMAAAAASUVORK5CYII='
     SENIORS.forEach(senior => {
-      // Use placeholder for now since actual senior images aren't provided
-      this.load.image(senior.id, placeholderPng)
+      if (senior.image) {
+        this.load.image(senior.id, senior.image)
+      } else {
+        this.load.image(senior.id, placeholderPng)
+      }
     })
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  LOADING SCREEN
-  // ═══════════════════════════════════════════════════════════════════════════
   _buildLoadingScreen() {
     const W = this.scale.width
     const H = this.scale.height
 
-    // ── Deep void base ───────────────────────────────────────────────────
+    // ── Pure black base ───────────────────────────────────────────────────
     this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0)
-
-    // ── Radial vignette blobs ────────────────────────────────────────────
-    this.add.ellipse(W * 0.5, H * 0.38, W * 1.5, H * 1.1, 0x0a0014, 0.88)
-    this.add.ellipse(W * 0.5, H * 0.5,  W * 0.9, H * 0.75, 0x06000e, 0.72)
 
     // ── Film grain ───────────────────────────────────────────────────────
     const grain = this.add.graphics().setAlpha(0.045)
@@ -97,7 +99,7 @@ export class BootScene extends Phaser.Scene {
     this._buildTerminalLines(W, H)
 
     // ── Progress bar ─────────────────────────────────────────────────────
-    this._buildProgressBar(W, H, bandY)
+    this._buildProgressBar(W, H, H * 0.86)
 
     // ── HUD corners ───────────────────────────────────────────────────────
     const hudS = {
@@ -144,90 +146,113 @@ export class BootScene extends Phaser.Scene {
     })
   }
 
+  _buildMatrixRain(W, H) {
+    const chars = '0123456789ABCDEF<>[]{}$%&*@#!'.split('')
+    const fontSize = 12
+    const cols = Math.floor(W / fontSize)
+    
+    this.time.addEvent({
+      delay: 40, loop: true,
+      callback: () => {
+        const x = Phaser.Math.Between(0, cols) * fontSize
+        const char = Phaser.Utils.Array.GetRandom(chars)
+        const t = this.add.text(x, -20, char, {
+          fontFamily: 'monospace',
+          fontSize: `${fontSize}px`,
+          color: '#39ff14'
+        }).setAlpha(0.6).setDepth(5)
+        
+        this.tweens.add({
+          targets: t,
+          y: H + 20,
+          duration: Phaser.Math.Between(2000, 5000),
+          onComplete: () => t.destroy(),
+          onUpdate: (tw) => {
+             // Randomly change character mid-fall for more glitch effect
+             if (Math.random() < 0.05) t.setText(Phaser.Utils.Array.GetRandom(chars))
+             // Fade out as it nears bottom
+             if (t.y > H * 0.8) t.setAlpha(t.alpha * 0.9)
+          }
+        })
+      }
+    })
+  }
+
   _buildTerminalLines(W, H) {
     const lines = [
-      { text: '[INIT]   hardware abstraction layer loaded',  col: '#6644cc' },
-      { text: '[INIT]   memory controller — 4096 MB OK',     col: '#554499' },
-      { text: '[KERN]   mounting virtual filesystem…',        col: '#6644cc' },
-      { text: '[KERN]   entropy pool seeded (urandom)',       col: '#554499' },
-      { text: '[PROC]   spawning worker threads [8]',         col: '#6644cc' },
-      { text: '[NET]    binding socket descriptors',           col: '#554499' },
-      { text: '[SYS]    loading asset pipeline…',            col: '#6644cc' },
-      { text: '[GFX]    compiling shader programs',           col: '#554499' },
-      { text: '[AUDIO]  initializing audio context',          col: '#6644cc' },
-      { text: '[READY]  all subsystems nominal ✓',           col: '#39ff88' },
+      { text: '[SYSTEM]  BOOTING SI-LAB CORE v4.0', col: '#39ff14' },
+      { text: '[LINK]    ESTABLISHING SECURE CONNECTION', col: '#39ff14' },
+      { text: '[SUCCESS] READY FOR FINAL SEQUENCE', col: '#39ff14' },
     ]
 
-    const termX      = Math.max(16, W * 0.05)
+    const termX      = W / 2
     const termStartY = H * 0.13
     const lineH      = Math.min(H * 0.038, 15)
     const fontSize   = Math.max(7, Math.min(W * 0.02, 10))
 
+    const textObjects = []
     lines.forEach((line, i) => {
       const t = this.add.text(termX, termStartY + i * lineH, '', {
         fontFamily: '"Nunito", sans-serif',
         fontSize, fill: line.col, resolution: 2,
-      }).setAlpha(0).setOrigin(0)
-
-      this.load.on('progress', v => {
-        const threshold = i / lines.length
-        if (v >= threshold && t.alpha === 0) {
-          this.tweens.add({
-            targets: t, alpha: 1, duration: 160, ease: 'Linear',
-            onStart: () => {
-              let idx = 0
-              const full = line.text
-              const tick = () => {
-                if (idx <= full.length) {
-                  t.setText(full.slice(0, idx) + (idx < full.length ? '█' : ''))
-                  idx++
-                  this.time.delayedCall(16, tick)
-                } else {
-                  t.setText(full)
-                }
-              }
-              tick()
-            }
-          })
-        }
-      })
+        align: 'center'
+      }).setAlpha(0).setOrigin(0.5, 0)
+      textObjects.push({ t, lineText: line.text })
     })
+
+    // Sequential Triggering
+    let currentLine = 0
+    const showNextLine = () => {
+      if (currentLine >= textObjects.length) return
+      
+      const { t, lineText } = textObjects[currentLine]
+      t.setAlpha(1)
+      
+      let idx = 0
+      const tick = () => {
+        if (idx <= lineText.length) {
+          t.setText(lineText.slice(0, idx) + (idx < lineText.length ? '█' : ''))
+          idx++
+          this.time.delayedCall(20, tick)
+        } else {
+          t.setText(lineText)
+          currentLine++
+          // Delay before next line starts
+          this.time.delayedCall(250, showNextLine)
+        }
+      }
+      tick()
+    }
+
+    this.time.delayedCall(500, showNextLine)
   }
 
   _buildProgressBar(W, H, barCenterY) {
-    const pad  = Math.max(W * 0.07, 24)
+    const pad  = 40
     const barW = W - pad * 2
-    const barH = 3
+    const barH = 2
 
-    // Track
-    this.add.rectangle(pad, barCenterY, barW + 4, barH + 6, 0x0d0d22).setOrigin(0, 0.5)
-    this.add.rectangle(pad, barCenterY, barW,     barH,     0x1a1a3a).setOrigin(0, 0.5)
+    // Track - very faint
+    this.add.rectangle(pad, barCenterY, barW, barH, 0x39ff14, 0.1).setOrigin(0, 0.5)
 
-    // Tick marks
-    const tickG = this.add.graphics()
-    for (let t = 0; t <= 10; t++) {
-      tickG.fillStyle(0x2a2a55, 0.7)
-      tickG.fillRect(pad + (barW * t / 10) - 0.5, barCenterY - 8, 1, 4)
-    }
+    // Fill - High intensity neon laser
+    const barFill = this.add.rectangle(pad, barCenterY, 0, barH, 0x39ff14).setOrigin(0, 0.5)
+    
+    // Glow layers for the laser effect
+    const barGlow = this.add.rectangle(pad, barCenterY, 0, barH + 4, 0x39ff14, 0.3).setOrigin(0, 0.5)
+    const flare   = this.add.circle(pad, barCenterY, 6, 0xffffff, 0.8).setDepth(100).setBlendMode(Phaser.BlendModes.ADD)
 
-    // Fill + glow layers
-    const barFill  = this.add.rectangle(pad, barCenterY, 2, barH,      0x7755ff).setOrigin(0, 0.5)
-    const barGlow1 = this.add.rectangle(pad, barCenterY, 2, barH + 7,  0x9966ff, 0.28).setOrigin(0, 0.5)
-    const barGlow2 = this.add.rectangle(pad, barCenterY, 2, barH + 16, 0xaa77ff, 0.09).setOrigin(0, 0.5)
-    const dot      = this.add.rectangle(pad + 2, barCenterY, 2, barH + 4, 0xffffff, 0.85).setOrigin(0, 0.5)
+    const pct = this.add.text(W / 2, barCenterY + 20, '0%', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#39ff14', fontStyle: 'bold'
+    }).setOrigin(0.5, 0)
 
-    const pct = this.add.text(pad, barCenterY + 14, '0%', {
-      fontFamily: '"Nunito", sans-serif',
-      fontSize: Math.max(8, Math.min(W * 0.022, 10)), fill: '#7755ff',
-    }).setOrigin(0, 0)
-
-    this._bootProgressBar = { barFill, barGlow1, barGlow2, dot, pct, barW, pad }
+    this._bootProgressBar = { barFill, barGlow, flare, pct, barW, pad }
     this._bootProgressTimer = this.time.addEvent({
       delay: 50,
       loop: true,
       callback: () => {
         const elapsed = performance.now() - this._bootStartTime
-        const total = 4000
+        const total = 3401
 
         let progress = elapsed / total
         progress = Math.pow(progress, 0.9)
@@ -257,18 +282,14 @@ export class BootScene extends Phaser.Scene {
     }
     progress = Phaser.Math.Clamp(progress, 0, 1)
 
-    const { barFill, barGlow1, barGlow2, dot, pct, barW, pad } = this._bootProgressBar
-    const fillWidth = Math.max(2, barW * progress)
-
+    const { barFill, barGlow, flare, pct, barW, pad } = this._bootProgressBar
+    
+    const fillWidth = Math.max(1, barW * progress)
     barFill.width = fillWidth
-    barGlow1.width = fillWidth
-    barGlow2.width = fillWidth
-    dot.x = pad + fillWidth - 1.5
+    barGlow.width = fillWidth
+    flare.x = pad + fillWidth
+    
     pct.setText(Math.round(progress * 100) + '%')
-
-    if (progress >= 1) {
-      pct.setText('100%')
-    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -510,13 +531,26 @@ export class BootScene extends Phaser.Scene {
   create() {
     this._spawnBootDriftParticles()
     this.cameras.main.fadeIn(800, 0, 0, 0)
+    
+    // Browsers block audio until a user clicks. We must add a click-to-start interaction.
+    const W = this.scale.width; const H = this.scale.height;
+    const clickText = this.add.text(W/2, H - 40, '> CLICK ANYWHERE TO INITIALIZE SYSTEM <', {
+      fontFamily: 'monospace', fontSize: '14px', fill: '#39ff14', fontStyle: 'bold'
+    }).setOrigin(0.5).setAlpha(0)
+    
+    this.tweens.add({ targets: clickText, alpha: 1, duration: 800, yoyo: true, repeat: -1 })
 
-    const elapsed = performance.now() - (this._bootStartTime || performance.now())
-    const wait = Math.max(0, this._bootMinDuration - elapsed)
+    // Wait for the user to click, which unlocks the AudioContext
+    this.input.once('pointerdown', () => {
+      clickText.destroy()
+      this.sound.play('bootscene')
 
-    this.time.delayedCall(wait, () => {
-      this.cameras.main.fadeOut(700, 0, 0, 0)
-      this.time.delayedCall(700, () => this.scene.start('PreludeScene'))
+      // Audio duration is precisely 4101ms. Fade out is 700ms.
+      // 4101 - 700 = 3401. Wait exactly 3401ms from audio start!
+      this.time.delayedCall(3401, () => {
+        this.cameras.main.fadeOut(700, 0, 0, 0)
+        this.time.delayedCall(700, () => this.scene.start('PreludeScene'))
+      })
     })
   }
 
