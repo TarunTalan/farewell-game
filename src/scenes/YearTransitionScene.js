@@ -59,6 +59,11 @@ export class YearTransitionScene extends Phaser.Scene {
     const scanlines = this.add.tileSprite(W/2, H/2, W, H, 'platform').setAlpha(0.02).setTint(pal.accent)
     this.tweens.add({ targets: scanlines, tilePositionY: '-=100', duration: 3000, repeat: -1 })
 
+    if (this.nextYear === 0) {
+      this._introAudio = this.sound.add('level1_intro')
+      this._introAudio.play()
+    }
+
     // ── TEXT ──
     const fs = n => Math.floor(W / n)
 
@@ -107,6 +112,9 @@ export class YearTransitionScene extends Phaser.Scene {
     this.tweens.add({ targets: tapTxt, alpha: 0.2, duration: 1000, yoyo: true, repeat: -1, delay: textItems.length * 400 })
 
     this.input.once('pointerdown', () => {
+      if (this._introAudio && this._introAudio.isPlaying) {
+        this._introAudio.stop()
+      }
       this.cameras.main.fadeOut(500, 0, 0, 0)
       this.cameras.main.once('camerafadeoutcomplete', () => {
         ptimer.remove()

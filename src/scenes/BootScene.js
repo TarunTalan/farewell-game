@@ -21,6 +21,15 @@ export class BootScene extends Phaser.Scene {
     
     // Load bootscene audio
     this.load.audio('bootscene', 'audio/bootscene.mp3')
+    this.load.audio('die', 'audio/die.mp3')
+    this.load.audio('running', 'audio/running.mp3')
+    this.load.audio('level1_bgm', 'audio/level1bgm.mp3')
+    this.load.audio('level1_intro', 'audio/level1intro.m4a')
+    this.load.audio('level1_jump', 'audio/level1jump.mp3')
+    this.load.audio('level1_slash', 'audio/level1slash.mp3')
+    this.load.audio('level1_damage', 'audio/level1damage.mp3')
+    this.load.audio('level1_complete', 'audio/level1complete.mp3')
+    this.load.audio('level1_win', 'audio/level1win.m4a')
 
     this._buildLoadingScreen()
     this._loadBootAssets()

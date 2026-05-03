@@ -108,8 +108,6 @@ export class GameScene extends Phaser.Scene {
     this._buildGround(pal, H)
 
     if (this.year === 1) {
-      // Year 2 gets its own bespoke background drawn here in create(),
-      // and skips generic platforms / atmosphere entirely.
       this._buildYear2Background(W, H)
     } else {
       this._buildPlatforms(pal, H)
@@ -180,8 +178,7 @@ export class GameScene extends Phaser.Scene {
     this.atkKey2 = this.input.keyboard.addKey('X')
 
     // Mobile controls
-this._mobile.build(W, H, this.year)
-
+    this._mobile.build(W, H, this.year)
 
     // HUD
     this._hud.build(W, H, pal)
@@ -192,11 +189,21 @@ this._mobile.build(W, H, this.year)
     // Screen fade in
     this.cameras.main.fadeIn(350)
 
+    // Start BGM for Level 1
+    if (this.year === 0) {
+      this._bgm = this.sound.add('level1_bgm', { loop: true, volume: 0.6 })
+      this._bgm.play()
+    }
+
     // Cleanup on shutdown
     this.events.once('shutdown', () => {
+      if (this._bgm) { this._bgm.stop(); this._bgm = null }
       this.input.off('pointerdown')
       this.input.off('pointermove')
       this.input.off('pointerup')
+      // Remove any lingering DOM overlays
+      const old = document.getElementById('_mgOverlay')
+      if (old) old.remove()
     })
   }
 
@@ -208,8 +215,6 @@ this._mobile.build(W, H, this.year)
   // ── Background ────────────────────────────────────────────────────────────
   _buildBackground(pal, W, H) {
     if (this.year === 1) {
-      // Year 2 custom background is built in _buildYear2Background().
-      // We still need the exit door so _checkLevelEnd() works.
       this._exitDoor = this.add.image(LEVEL_WIDTH - 70, this._groundY - 50, 'exit_door')
         .setDepth(2)
       this._exitDoorGlow = this.add.rectangle(
@@ -269,7 +274,7 @@ this._mobile.build(W, H, this.year)
   _buildYear2Background(W, H) {
     const horizonY = H * 0.55
 
-    // 1. Sky — deep blue-black gradient filling whole screen
+    // 1. Sky
     const sky = this.add.graphics().setScrollFactor(0).setDepth(-10)
     sky.fillGradientStyle(0x080818, 0x080818, 0x161028, 0x161028, 1)
     sky.fillRect(0, 0, W, H)
@@ -283,7 +288,7 @@ this._mobile.build(W, H, this.year)
     moon.fillStyle(0xfff8e8, 0.03)
     moon.fillCircle(W * 0.80, H * 0.13, 70)
 
-    // 3. Stars — sparse, warm-tinted
+    // 3. Stars
     const starGfx = this.add.graphics().setScrollFactor(0).setDepth(-9)
     for (let i = 0; i < 70; i++) {
       starGfx.fillStyle(0xfff0dd, 0.3 + Math.random() * 0.6)
@@ -294,7 +299,7 @@ this._mobile.build(W, H, this.year)
       )
     }
 
-    // 4. Far city silhouette — slow parallax
+    // 4. Far city silhouette
     const farCity = this.add.graphics().setScrollFactor(0.06).setDepth(-8)
     farCity.fillStyle(0x0d0b1a, 1)
     const farB = [
@@ -308,7 +313,6 @@ this._mobile.build(W, H, this.year)
     farB.forEach(([x, y, w, h]) => {
       farCity.fillRect(x * LEVEL_WIDTH * 0.3, y * H, w * LEVEL_WIDTH * 0.3, h * H)
     })
-    // Tiny warm windows on far buildings
     farB.forEach(([x, y, w, h]) => {
       const bx = x * LEVEL_WIDTH * 0.3, by = y * H
       const bw = w * LEVEL_WIDTH * 0.3, bh = h * H
@@ -322,7 +326,7 @@ this._mobile.build(W, H, this.year)
       }
     })
 
-    // 5. Near city silhouette — medium parallax
+    // 5. Near city silhouette
     const nearCity = this.add.graphics().setScrollFactor(0.18).setDepth(-7)
     nearCity.fillStyle(0x090815, 1)
     const nearB = [
@@ -335,7 +339,6 @@ this._mobile.build(W, H, this.year)
     nearB.forEach(([x, y, w, h]) => {
       nearCity.fillRect(x * LEVEL_WIDTH * 0.38, y * H, w * LEVEL_WIDTH * 0.38, h * H)
     })
-    // Amber windows — near, denser
     nearB.forEach(([x, y, w, h]) => {
       const bx = x * LEVEL_WIDTH * 0.38, by = y * H
       const bw = w * LEVEL_WIDTH * 0.38, bh = h * H
@@ -349,40 +352,36 @@ this._mobile.build(W, H, this.year)
       }
     })
 
-    // 6. Ground fill — dark asphalt across full level width (world space)
+    // 6. Ground fill
     const groundGfx = this.add.graphics().setDepth(-6)
     groundGfx.fillStyle(0x0e0c18, 1)
     groundGfx.fillRect(0, horizonY, LEVEL_WIDTH, H - horizonY)
 
-    // 7. Horizon amber bleed — warm streetlight glow (screen-fixed)
+    // 7. Horizon amber bleed
     const hBleed = this.add.graphics().setScrollFactor(0).setDepth(-5)
     hBleed.fillGradientStyle(0x1e1206, 0x1e1206, 0x0e0c18, 0x0e0c18, 0.6, 0.6, 0, 0)
     hBleed.fillRect(0, horizonY, W, 50)
 
-    // 8. Thin fog band at horizon
+    // 8. Fog band
     const fog = this.add.graphics().setScrollFactor(0).setDepth(-5)
     fog.fillStyle(0x12101e, 0.22)
     fog.fillRect(0, horizonY - 18, W, 36)
 
-    // 9. Street lamp posts — decorative, in world space
+    // 9. Street lamp posts
     const lampGfx = this.add.graphics().setDepth(-4)
     const lampPositions = [300, 750, 1200, 1650, 2100, 2550]
     lampPositions.forEach(lx => {
       const ly = this._groundY
-      // Pole
       lampGfx.fillStyle(0x2a2535, 1)
       lampGfx.fillRect(lx - 3, ly - 110, 6, 110)
-      // Arm
       lampGfx.fillRect(lx - 3, ly - 110, 22, 5)
-      // Lamp head
       lampGfx.fillStyle(0xffcc66, 1)
       lampGfx.fillRect(lx + 12, ly - 116, 18, 10)
-      // Soft glow pool on ground
       lampGfx.fillStyle(0xffaa33, 0.06)
       lampGfx.fillEllipse(lx + 20, ly - 2, 90, 18)
     })
 
-    // 10. Zone labels for Year 2
+    // 10. Zone labels
     const zoneLabels = [
       { x: 120,  text: 'PROBATION ZONE' },
       { x: 900,  text: 'MID SEMESTER'   },
@@ -460,7 +459,6 @@ this._mobile.build(W, H, this.year)
   // ── Atmosphere effects ────────────────────────────────────────────────────
   _buildAtmosphere(pal, W, H) {
     if (this.year === 0) {
-      // Twinkling stars
       for (let i = 0; i < 60; i++) {
         const s = this.add.circle(
           Phaser.Math.Between(0, LEVEL_WIDTH),
@@ -479,7 +477,6 @@ this._mobile.build(W, H, this.year)
         })
       }
     } else if (this.year === 2) {
-      // Year 3: Flying debris + embers
       this._debrisTimer = this.time.addEvent({
         delay: 600, loop: true,
         callback: () => {
@@ -497,7 +494,6 @@ this._mobile.build(W, H, this.year)
         },
       })
     } else if (this.year === 3) {
-      // Year 4: Floating golden leaves + warm light motes
       this._leafTimer = this.time.addEvent({
         delay: 400, loop: true,
         callback: () => {
@@ -519,7 +515,6 @@ this._mobile.build(W, H, this.year)
           })
         },
       })
-      // Warm light particles rising
       this.time.addEvent({
         delay: 250, loop: true,
         callback: () => {
@@ -549,7 +544,6 @@ this._mobile.build(W, H, this.year)
     for (let y = 0; y < H; y += 3) {
       scan.fillRect(0, y, W, 1)
     }
-    // Vignette edges
     const vig   = this.add.graphics().setScrollFactor(0).setDepth(199)
     const edgeW = W * 0.10
     for (let x = 0; x < edgeW; x++) {
@@ -580,16 +574,13 @@ this._mobile.build(W, H, this.year)
       this._spawnEnemy(x, gy - cfg.h / 2 - 2, cfg, key)
     }
 
-    // Pickups — alternating score / hp
     YEAR_VARIANTS[this.year].pickupXs.forEach((x, i) => {
       this._spawnPickup(x, gy - 52, i % 2 === 0 ? 'pickup_hp' : 'pickup')
     })
 
-    // Powerup
     const puCfg = POWERUPS[this.year]
     this._spawnPowerupPickup(750 + this.year * 280, gy - 60, puCfg)
 
-    // Boss on Year 4 (index 3) — PLACEMENTS final boss
     if (this.year === 3) {
       this.time.delayedCall(300, () => this._spawnBoss(H))
     }
@@ -606,7 +597,6 @@ this._mobile.build(W, H, this.year)
     e.setData('isBoss',    false)
     e.setData('jumpTimer', Phaser.Math.FloatBetween(0, 2))
 
-    // HP bar
     const barBg = this.add.rectangle(x, y - cfg.h / 2 - 10, cfg.w + 4, 5, 0x330000).setDepth(9)
     const barFg = this.add.rectangle(x - 2, y - cfg.h / 2 - 10, cfg.w, 3, 0xff3333).setOrigin(0, 0.5).setDepth(10)
     const lbl   = this.add.text(x, y - cfg.h / 2 - 18, cfg.label, {
@@ -685,7 +675,6 @@ this._mobile.build(W, H, this.year)
     this._bossEntity  = e
     this._bossSpawned = true
 
-    // Warning flash
     this.cameras.main.shake(700, 0.022)
     const warn = this.add.text(W / 2, H / 2, '⚠ PLACEMENTS INCOMING ⚠', {
       fontFamily: '"Nunito", sans-serif',
@@ -700,7 +689,6 @@ this._mobile.build(W, H, this.year)
     if (!this.player?.active || !this.player.body) return
     if (this._levelComplete) return
 
-    // Parallax BG scroll
     if (this._bgTile) this._bgTile.tilePositionX = this.cameras.main.scrollX * 0.07
 
     this._updatePlayer(time, delta)
@@ -722,11 +710,9 @@ this._mobile.build(W, H, this.year)
     const onGround = this.player.body.blocked.down
     if (onGround) this._jumpCount = 0
 
-    // Speed modifier
     let speed = PLAYER_SPEED
     if (this._powerupActive && this._powerupType === 'coffee') speed *= 1.9
 
-    // Horizontal movement
     let goLeft  = this.cursors.left.isDown  || this.wasd.left.isDown  || this._mobile.touchLeft
     let goRight = this.cursors.right.isDown || this.wasd.right.isDown || this._mobile.touchRight
 
@@ -735,21 +721,31 @@ this._mobile.build(W, H, this.year)
       else                     { goRight = false; goLeft = false }
     }
 
+    const isMoving = goLeft || goRight
     if      (goLeft)  this.player.setVelocityX(-speed)
     else if (goRight) this.player.setVelocityX(speed)
     else {
       const vx = this.player.body.velocity.x
-      this.player.setVelocityX(vx * 0.78) // smooth stop
+      this.player.setVelocityX(vx * 0.78)
     }
 
-    // Facing
+    // Audio - Running
+    if (onGround && isMoving && !this._levelComplete) {
+      if (!this._runAudio || !this._runAudio.isPlaying) {
+        if (!this._runAudio) this._runAudio = this.sound.add('running', { loop: true, volume: 0.8 })
+        this._runAudio.play()
+      }
+    } else {
+      if (this._runAudio && this._runAudio.isPlaying) {
+        this._runAudio.stop()
+      }
+    }
+
     if      (goLeft)  this.player.setFlipX(true)
     else if (goRight) this.player.setFlipX(false)
 
-    // Texture
     this.player.setTexture(onGround ? 'player' : 'player_jump')
 
-    // Jump
     const wantJump = Phaser.Input.Keyboard.JustDown(this.cursors.up)
                   || Phaser.Input.Keyboard.JustDown(this.cursors.space)
                   || Phaser.Input.Keyboard.JustDown(this.wasd.up)
@@ -761,28 +757,25 @@ this._mobile.build(W, H, this.year)
       this._particles.setPosition(this.player.x, this.player.y + this.player.height / 2)
       this._particles.setParticleTint(0xffffff)
       this._particles.explode(8)
+      if (this.year === 0) this.sound.play('level1_jump', { volume: 0.6 })
     }
 
-    // Attack
     const wantAttack = Phaser.Input.Keyboard.JustDown(this.atkKey)
                     || Phaser.Input.Keyboard.JustDown(this.atkKey2)
                     || this._mobile.touchAttackPressed
 
-if (wantAttack && !this._levelComplete) {
+    if (wantAttack && !this._levelComplete) {
       this._combat.doAttack(time, this.player, this.enemies, this._particles, this._powerupActive, this._powerupType)
       this._doSlashEffect()
+      if (this.year === 0) this.sound.play('level1_slash', { volume: 0.5 })
     }
 
-    // Powerup expiry
     if (this._powerupActive && time > this._powerupEndTime) {
       this._powerupActive = false
       this._powerupType   = null
       this._combat._showFloat(this.player.x, this.player.y - 35, 'powerup expired', '#888888')
     }
   }
-
-
-
 
   _onBossDefeated() {
     if (this._levelComplete) return
@@ -819,7 +812,6 @@ if (wantAttack && !this._levelComplete) {
 
     this.tweens.add({ targets: text2, alpha: 1, duration: 800, delay: 800 })
 
-    // Confetti
     for (let i = 0; i < 40; i++) {
       const dot = this.add.circle(
         W / 2 + Phaser.Math.Between(-100, 100), H + 10,
@@ -862,7 +854,6 @@ if (wantAttack && !this._levelComplete) {
         if (Math.abs(dx) < 450) e.setVelocityX(dx > 0 ? spd : -spd)
         else                    e.setVelocityX(0)
 
-        // Occasional jump
         let jt = e.getData('jumpTimer') - this.game.loop.delta / 1000
         e.setData('jumpTimer', jt)
         if (jt <= 0 && e.body.blocked.down) {
@@ -879,7 +870,6 @@ if (wantAttack && !this._levelComplete) {
     const phase = frac > 0.65 ? 0 : frac > 0.35 ? 1 : 2
     const ph    = BOSS_CFG.phases[phase]
 
-    // Phase change effects
     if (phase !== this._bossPhase) {
       this._bossPhase = phase
       this.cameras.main.shake(400, 0.018)
@@ -893,12 +883,10 @@ if (wantAttack && !this._levelComplete) {
 
     boss.setTint(ph.color)
 
-    // Move toward player
     const dx = this.player.x - boss.x
     if (Math.abs(dx) > 70) boss.setVelocityX(dx > 0 ? ph.speed : -ph.speed)
     else                   boss.setVelocityX(0)
 
-    // Boss jump
     let jt = boss.getData('jumpTimer') - this.game.loop.delta / 1000
     boss.setData('jumpTimer', jt)
     if (jt <= 0 && boss.body.blocked.down) {
@@ -906,14 +894,12 @@ if (wantAttack && !this._levelComplete) {
       boss.setData('jumpTimer', Phaser.Math.FloatBetween(1.2, 2.5))
     }
 
-    // Shoot
     const lastShot = boss.getData('lastShot') || 0
     if (time - lastShot > ph.shootInterval) {
       boss.setData('lastShot', time)
       this._bossShoot(boss, phase)
     }
 
-    // Update HP bar
     if (this._bossHpBar) {
       const pct = Math.max(0, hp / BOSS_CFG.hp)
       this._bossHpBar.width = 216 * pct
@@ -967,6 +953,12 @@ if (wantAttack && !this._levelComplete) {
     this._levelComplete = true
     this._autoWalkRight = true
 
+    if (this.year === 0) {
+      if (this._bgm) { this._bgm.stop(); this._bgm = null }
+      if (this._runAudio) { this._runAudio.stop() }
+      this.sound.play('level1_complete')
+    }
+
     GS.score += 300 + this._killedThisLevel * 20
     GS.cgpa   = Math.min(10.0, GS.cgpa + 0.3)
     GS.year   = this.year + 1
@@ -976,9 +968,9 @@ if (wantAttack && !this._levelComplete) {
 
     if (this.year === 0) {
       this._showYear1Stats(W, H)
-    }else if (this.year === 1) {
+    } else if (this.year === 1) {
       this._showYear2Stats(W, H)
-     } else {
+    } else {
       const yearNames = ['YEAR 1 CLEARED!', 'YEAR 2 CLEARED!', 'YEAR 3 CLEARED!', 'BOSS DEFEATED!']
       const mainTxt = this.add.text(W / 2, H / 2 - 25, yearNames[this.year] || 'CLEARED!', {
         fontFamily: '"Nunito", sans-serif',
@@ -1008,6 +1000,7 @@ if (wantAttack && !this._levelComplete) {
   }
 
   _showYear1Stats(W, H) {
+    this.sound.play('level1_win')
     const container = this.add.container(0, 0).setScrollFactor(0).setDepth(1000)
     const overlay   = this.add.rectangle(0, 0, W, H, 0x000000, 0.9).setOrigin(0)
     container.add(overlay)
@@ -1075,7 +1068,6 @@ if (wantAttack && !this._levelComplete) {
       })
     })
 
-    // Confetti
     for (let i = 0; i < 40; i++) {
       const c = this.add.circle(
         W / 2 + Phaser.Math.Between(-150, 150), H + 20,
@@ -1095,148 +1087,7 @@ if (wantAttack && !this._levelComplete) {
     }
   }
 
-
-  _showYear2Stats(W, H) {
-    const container = this.add.container(0, 0).setScrollFactor(0).setDepth(1000)
-    const overlay   = this.add.rectangle(0, 0, W, H, 0x000000, 0.92).setOrigin(0)
-    container.add(overlay)
-
-    const cardW = W * 0.88, cardH = H * 0.78
-    const cardX = W / 2,    cardY = H / 2
-
-    // Card background
-    const cardBG = this.add.graphics()
-    cardBG.fillStyle(0x08060f, 1)
-    cardBG.fillRoundedRect(cardX - cardW / 2, cardY - cardH / 2, cardW, cardH, 22)
-    cardBG.lineStyle(2.5, 0xffbb55, 0.85)
-    cardBG.strokeRoundedRect(cardX - cardW / 2, cardY - cardH / 2, cardW, cardH, 22)
-    cardBG.lineStyle(1, 0xffbb55, 0.25)
-    cardBG.strokeRoundedRect(cardX - cardW / 2 + 8, cardY - cardH / 2 + 8, cardW - 16, cardH - 16, 17)
-    container.add(cardBG)
-
-    // Title
-    const title = this.add.text(cardX, cardY - cardH / 2 + 52, 'YEAR 2 REPORT CARD', {
-      fontFamily: '"Rajdhani", sans-serif', fontSize: '30px',
-      fontStyle: 'bold', fill: '#ffbb55', letterSpacing: 3,
-    }).setOrigin(0.5).setScale(0)
-    container.add(title)
-
-    // Divider
-    const div = this.add.graphics()
-    div.lineStyle(1, 0xffbb55, 0.3)
-    div.lineBetween(cardX - cardW * 0.38, cardY - cardH / 2 + 78, cardX + cardW * 0.38, cardY - cardH / 2 + 78)
-    container.add(div)
-
-    // Stats rows (left side — text)
-    const stats = [
-      { k: 'FRIENDS MADE',        v: 'For Life 🫂',                              c: '#00ff88' },
-      { k: 'RELATIONSHIP STATUS', v: 'Still single\n(Paras sir still winning tho 💀)', c: '#ff88cc' },
-      { k: 'MEMORY GATES CLEARED', v: '3 / 3  —  you actually remembered stuff', c: '#44aaff' },
-      { k: 'CGPA',                v: '',                                          c: '#ffcc44', meme: true },
-    ]
-
-    const textColW  = cardW * 0.52
-    const imgColX   = cardX + cardW * 0.17
-    const startY    = cardY - cardH / 2 + 108
-
-    const entries = []
-    let   memeImgAdded = false
-
-    stats.forEach((s, i) => {
-      const yPos = startY + i * 88
-
-      const kTxt = this.add.text(cardX - cardW * 0.38, yPos, s.k, {
-        fontFamily: '"Nunito", sans-serif', fontSize: '11px',
-        fill: '#777777', letterSpacing: 3,
-      }).setOrigin(0, 0).setAlpha(0)
-
-      container.add(kTxt)
-      entries.push(kTxt)
-
-      if (s.meme) {
-        // Show salman.png as the CGPA answer
-        if (!memeImgAdded) {
-          memeImgAdded = true
-          const img = this.add.image(imgColX, yPos + 28, 'salman_meme')
-            .setOrigin(0.5).setDisplaySize(110, 80).setAlpha(0)
-          container.add(img)
-          entries.push(img)
-
-          const memeLabel = this.add.text(imgColX, yPos + 76, '(the meme speaks for itself)', {
-            fontFamily: '"Nunito", sans-serif', fontSize: '9px', fill: '#666666',
-          }).setOrigin(0.5).setAlpha(0)
-          container.add(memeLabel)
-          entries.push(memeLabel)
-        }
-      } else {
-        const vTxt = this.add.text(cardX - cardW * 0.38, yPos + 22, s.v, {
-          fontFamily: '"Rajdhani", sans-serif', fontSize: '16px',
-          fill: s.c, fontStyle: 'bold', align: 'left',
-          wordWrap: { width: textColW },
-        }).setOrigin(0, 0).setAlpha(0)
-        container.add(vTxt)
-        entries.push(vTxt)
-      }
-    })
-
-    // Score strip at bottom of card
-    const scoreTxt = this.add.text(cardX, cardY + cardH / 2 - 78,
-      `SCORE  ${GS.score}     KILLS  ${this._killedThisLevel}`, {
-      fontFamily: '"Nunito", sans-serif', fontSize: '13px', fill: '#888888', letterSpacing: 2,
-    }).setOrigin(0.5).setAlpha(0)
-    container.add(scoreTxt)
-    entries.push(scoreTxt)
-
-    // Continue prompt
-    const continueTxt = this.add.text(cardX, cardY + cardH / 2 - 44, 'CLICK TO CONTINUE', {
-      fontFamily: '"Nunito", sans-serif', fontSize: '14px', fill: '#ffbb55', letterSpacing: 4,
-    }).setOrigin(0.5).setAlpha(0)
-    container.add(continueTxt)
-
-    // Animations
-    this.tweens.add({ targets: title, scale: 1, duration: 820, ease: 'Elastic.out(1,0.5)' })
-    entries.forEach((el, i) => {
-      this.tweens.add({
-        targets: el, alpha: 1, y: el.y - 12,
-        delay: 500 + i * 180, duration: 580, ease: 'Power2.out',
-      })
-    })
-
-    this.time.delayedCall(3800, () => {
-      this.tweens.add({ targets: continueTxt, alpha: 1, duration: 450 })
-      this.tweens.add({ targets: continueTxt, alpha: 0.25, duration: 750, yoyo: true, repeat: -1 })
-
-      this.input.once('pointerdown', () => {
-        this.cameras.main.fadeOut(800, 0, 0, 0)
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('YearTransition', { year: this.year + 1, score: GS.score })
-        })
-      })
-    })
-
-    // Amber confetti (lofi night theme)
-    for (let i = 0; i < 35; i++) {
-      const col = Phaser.Utils.Array.GetRandom([0xffbb55, 0xffcc88, 0xff8800, 0xffffff, 0x00e5ff])
-      const c   = this.add.circle(
-        W / 2 + Phaser.Math.Between(-170, 170), H + 15,
-        Phaser.Math.Between(3, 7), col
-      ).setScrollFactor(0).setDepth(1001)
-      this.tweens.add({
-        targets: c,
-        y: H * 0.35 + Phaser.Math.Between(-120, 120),
-        x: c.x + Phaser.Math.Between(-180, 180),
-        duration: 1600 + Math.random() * 1400,
-        ease: 'Cubic.out',
-        onComplete: () => {
-          this.tweens.add({ targets: c, alpha: 0, y: H + 40, duration: 2200 })
-        },
-      })
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-  // Year 2 — Traffic-Light Memory Gates  (3 gates, escalating difficulty)
-  // ─────────────────────────────────────────────────────────────────────────
-// ── Slash visual effect ───────────────────────────────────────────────────
+  // ── Slash visual effect ───────────────────────────────────────────────────
   _doSlashEffect() {
     if (!this.player?.active) return
     const dir = this.player.flipX ? -1 : 1
@@ -1270,160 +1121,201 @@ if (wantAttack && !this._levelComplete) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Year 2 — Checkpoint Memory Gates  (3 gates, pure Phaser Graphics)
+  // Year 2 — Checkpoint Memory Gates  (3 gates, FIXED)
+  //
+  // KEY FIXES:
+  //   1. Blocker is RIGHT AT the traffic light pole foot (player stops there)
+  //   2. Trigger zone fires only when player is very close (within 60px)
+  //      so the light is always visible on screen
+  //   3. All light number labels start at alpha=0 and are NEVER shown during
+  //      the sequence — only the coloured circles flash
+  //   4. Gate 1 is now 5 digits (was 4)
+  //   5. lt.worldX stored correctly so floating labels render in world space
   // ─────────────────────────────────────────────────────────────────────────
 
-_buildMemoryGates(pal) {
+  _buildMemoryGates(pal) {
     const gy = this._groundY
     const W  = this.scale.width
 
+    // ── Gate config ─────────────────────────────────────────────────────────
+    // seqLen: how many digits in the sequence
+    // twist:  'normal' | 'reverse' | 'shift'
     const gateCfgs = [
-      { seqLen: 4, twist: 'normal',  label: 'CHECKPOINT 1', hint: 'Same order'              },
-      { seqLen: 5, twist: 'reverse', label: 'CHECKPOINT 2', hint: 'REVERSE order!'           },
-      { seqLen: 6, twist: 'shift',   label: 'CHECKPOINT 3', hint: 'Each +1  R→Y  Y→G  G→R'  },
+      { seqLen: 5, twist: 'normal',  label: 'CHECKPOINT 1', hint: 'Same order'            },
+      { seqLen: 5, twist: 'reverse', label: 'CHECKPOINT 2', hint: 'REVERSE order!'         },
+      { seqLen: 6, twist: 'shift',   label: 'CHECKPOINT 3', hint: 'Each +1  R→Y  Y→G  G→R'},
     ]
 
-    const gatePositions = [560, 1380, 2200]
+    // Gate X positions in world space.
+    // The traffic light structure sits AT gateX.
+    // The blocker sits AT gateX (player walks up and stops here).
+    // The light housing is drawn slightly to the LEFT so the player can see it.
+    const gatePositions = [700, 1550, 2400]
 
     gatePositions.forEach((gx, i) => {
       const cfg        = gateCfgs[i]
-      const barrierCol = [0xff3333, 0xffaa00, 0xcc44ff][i]
+      const accentCol  = [0xff3333, 0xffaa00, 0xcc44ff][i]
 
-      // ── BLOCKER: sits LEFT of the visual gate ─────────────────────────────
-      // Player walks right → hits blocker → stops → lights are visible
-      // ahead and to the right on screen
-      const blockerX = gx - 10
-      const blocker  = this.physics.add.staticImage(blockerX, gy - 80, 'ground')
-        .setDisplaySize(12, 160).setAlpha(0)
+      // ── BLOCKER: invisible wall exactly at gx ────────────────────────────
+      // Player walks right, hits this, stops. The light is to their LEFT
+      // (slightly behind them visually) which means it's on screen since
+      // camera follows the player.
+      // We place the light 80px to the LEFT of the blocker so it's always
+      // in the camera view when the player is standing at the blocker.
+      const lightCX = gx - 80   // world-x of the traffic light centre
+
+      const blocker = this.physics.add.staticImage(gx, gy - 80, 'ground')
+        .setDisplaySize(8, 180).setAlpha(0)
       blocker.refreshBody()
       this.physics.add.collider(this.player, blocker)
 
-      // ── ENERGY BARRIER LINE at blocker position ───────────────────────────
+      // ── ENERGY BARRIER at blocker position ──────────────────────────────
       const barrierGfx = this.add.graphics().setDepth(6)
-      barrierGfx.lineStyle(4, barrierCol, 1)
-      barrierGfx.lineBetween(blockerX, gy - 170, blockerX, gy)
-      barrierGfx.lineStyle(16, barrierCol, 0.18)
-      barrierGfx.lineBetween(blockerX, gy - 170, blockerX, gy)
-      barrierGfx.lineStyle(32, barrierCol, 0.07)
-      barrierGfx.lineBetween(blockerX, gy - 170, blockerX, gy)
-      this.tweens.add({
-        targets: barrierGfx, alpha: 0.35,
-        duration: 650, yoyo: true, repeat: -1,
-      })
+      const drawBarrier = () => {
+        barrierGfx.clear()
+        barrierGfx.lineStyle(3, accentCol, 0.9)
+        barrierGfx.lineBetween(gx, gy - 180, gx, gy)
+        barrierGfx.lineStyle(12, accentCol, 0.22)
+        barrierGfx.lineBetween(gx, gy - 180, gx, gy)
+        barrierGfx.lineStyle(28, accentCol, 0.08)
+        barrierGfx.lineBetween(gx, gy - 180, gx, gy)
+      }
+      drawBarrier()
+      this.tweens.add({ targets: barrierGfx, alpha: 0.4, duration: 600, yoyo: true, repeat: -1 })
 
-      // ── TRAFFIC LIGHT — drawn to the RIGHT of blocker (visible on screen) ─
-      // Light post centered at gx + 60 so player sees it clearly
-      const lightCX = gx + 60   // world-x centre of the light structure
-      const poleTop = gy - 230
+      // ── TRAFFIC LIGHT STRUCTURE (world space, left of blocker) ───────────
+      const poleTopY  = gy - 240
+      const houseW    = 44
+      const houseH    = 150
+      const houseX    = lightCX - houseW / 2
+      const houseY    = poleTopY + 20
+      const armLen    = lightCX + houseW / 2 + 10  // end of horizontal arm = gx area
 
       const structGfx = this.add.graphics().setDepth(5)
 
-      // Pole
+      // Vertical pole
       structGfx.fillStyle(0x1e1c2e, 1)
-      structGfx.fillRect(lightCX - 5, poleTop, 10, gy - poleTop)
+      structGfx.fillRect(lightCX - 4, poleTopY, 8, gy - poleTopY)
 
-      // Horizontal arm
+      // Horizontal arm to barrier line
       structGfx.fillStyle(0x1e1c2e, 1)
-      structGfx.fillRect(lightCX - 44, poleTop + 10, 44, 8)
+      structGfx.fillRect(lightCX, poleTopY + 15, gx - lightCX, 7)
 
-      // Housing box — left of pole, lights stacked inside
-      const houseX = lightCX - 44
-      const houseY = poleTop
-      const houseW = 38
-      const houseH = 130
-      structGfx.fillStyle(0x0d0c1a, 1)
-      structGfx.fillRoundedRect(houseX, houseY, houseW, houseH, 8)
-      structGfx.lineStyle(2, barrierCol, 0.7)
-      structGfx.strokeRoundedRect(houseX, houseY, houseW, houseH, 8)
+      // Housing box
+      structGfx.fillStyle(0x0b0920, 1)
+      structGfx.fillRoundedRect(houseX, houseY, houseW, houseH, 10)
+      structGfx.lineStyle(2, accentCol, 0.8)
+      structGfx.strokeRoundedRect(houseX, houseY, houseW, houseH, 10)
 
-      // Sign above housing
-      structGfx.fillStyle(0x0a0818, 0.95)
-      structGfx.fillRoundedRect(houseX - 10, houseY - 28, houseW + 20, 24, 5)
-      structGfx.lineStyle(1.5, barrierCol, 0.8)
-      structGfx.strokeRoundedRect(houseX - 10, houseY - 28, houseW + 20, 24, 5)
-
-      const signTxt = this.add.text(
-        houseX + houseW / 2, houseY - 16,
-        `${cfg.label}`, {
-          fontFamily: '"Nunito", sans-serif',
-          fontSize:   '10px',
-          color:      '#ffcc77',
-        }
-      ).setOrigin(0.5).setDepth(7)
-
-      const alertDot = this.add.circle(houseX - 4, houseY - 16, 4, barrierCol, 1).setDepth(7)
-      this.tweens.add({ targets: alertDot, alpha: 0.1, duration: 480, yoyo: true, repeat: -1 })
-
-      // Seq length badge below sign
-      const seqBadge = this.add.text(
-        houseX + houseW / 2, houseY - 4,
-        `×${cfg.seqLen}`, {
-          fontFamily: '"Nunito", sans-serif',
-          fontSize:   '9px',
-          color:      '#888899',
-        }
-      ).setOrigin(0.5).setDepth(7)
-
-      // ── Three lights inside housing (stacked vertically) ──────────────────
-      const lightDefs = [
-        { col: 0xff2222, hex: 'ff2222' },   // 0 = Red
-        { col: 0xffcc00, hex: 'ffcc00' },   // 1 = Yellow
-        { col: 0x22dd55, hex: '22dd55' },   // 2 = Green
-      ]
-      const lightLX = houseX + houseW / 2   // horizontal centre of housing
-
-      const lights = lightDefs.map((def, j) => {
-        const lly = houseY + 22 + j * 36    // vertical position inside housing
-
-        // Dark socket ring
-        const dimGfx = this.add.graphics().setDepth(6)
-        dimGfx.fillStyle(0x000000, 0.8)
-        dimGfx.fillCircle(lightLX, lly, 14)
-        dimGfx.fillStyle(def.col, 0.14)
-        dimGfx.fillCircle(lightLX, lly, 13)
-        dimGfx.lineStyle(1, def.col, 0.25)
-        dimGfx.strokeCircle(lightLX, lly, 13)
-
-        // Lit graphic — starts invisible
-        const litGfx = this.add.graphics().setDepth(7).setAlpha(0)
-        litGfx.fillStyle(def.col, 1)
-        litGfx.fillCircle(lightLX, lly, 13)
-        // Specular highlight
-        litGfx.fillStyle(0xffffff, 0.4)
-        litGfx.fillCircle(lightLX - 4, lly - 4, 4)
-        // Outer bloom
-        litGfx.lineStyle(7, def.col, 0.45)
-        litGfx.strokeCircle(lightLX, lly, 17)
-        litGfx.lineStyle(14, def.col, 0.15)
-        litGfx.strokeCircle(lightLX, lly, 22)
-
-        // Number label to right of housing
-        const numTxt = this.add.text(houseX + houseW + 8, lly, `${j + 1}`, {
-          fontFamily: '"Rajdhani", sans-serif',
-          fontSize:   '15px',
-          color:      `#${def.hex}`,
-          fontStyle:  'bold',
-          stroke:     '#000000',
-          strokeThickness: 2,
-        }).setOrigin(0, 0.5).setDepth(7).setAlpha(0.45)
-
-        return { dimGfx, litGfx, numTxt, lly, col: def.col, hex: def.hex }
+      // Rivets on housing
+      [[houseX + 6, houseY + 6], [houseX + houseW - 6, houseY + 6],
+       [houseX + 6, houseY + houseH - 6], [houseX + houseW - 6, houseY + houseH - 6]].forEach(([rx, ry]) => {
+        structGfx.fillStyle(0x2a2540, 1)
+        structGfx.fillCircle(rx, ry, 3)
       })
 
-      // Road dashes in front of blocker
+      // Sign board above housing
+      const signBoardX = houseX - 12
+      const signBoardY = houseY - 38
+      const signBoardW = houseW + 24
+      const signBoardH = 34
+      structGfx.fillStyle(0x080618, 0.98)
+      structGfx.fillRoundedRect(signBoardX, signBoardY, signBoardW, signBoardH, 6)
+      structGfx.lineStyle(1.5, accentCol, 0.9)
+      structGfx.strokeRoundedRect(signBoardX, signBoardY, signBoardW, signBoardH, 6)
+
+      // Pulsing dot on sign
+      const alertDot = this.add.circle(signBoardX + 7, signBoardY + signBoardH / 2, 4, accentCol, 1).setDepth(7)
+      this.tweens.add({ targets: alertDot, alpha: 0.1, duration: 480, yoyo: true, repeat: -1 })
+
+      // Sign text
+      const signTxt = this.add.text(
+        houseX + houseW / 2, signBoardY + signBoardH / 2,
+        cfg.label, {
+          fontFamily: '"Nunito", sans-serif', fontSize: '10px', color: '#ffcc77',
+        }
+      ).setOrigin(0.5).setDepth(7)
+
+      // Sequence length badge below housing
+      const seqBadge = this.add.text(
+        houseX + houseW / 2, houseY + houseH + 8,
+        `${cfg.seqLen} DIGITS`, {
+          fontFamily: '"Nunito", sans-serif', fontSize: '9px', color: '#666699',
+        }
+      ).setOrigin(0.5).setDepth(7)
+
+      // ── Three lights inside housing (stacked, NO numbers shown during play) ─
+      const lightDefs = [
+        { col: 0xff2222, dimCol: 0x330808, hex: 'ff2222', name: 'RED'    },  // 0 → press 1
+        { col: 0xffcc00, dimCol: 0x332a00, hex: 'ffcc00', name: 'YELLOW' },  // 1 → press 2
+        { col: 0x22dd55, dimCol: 0x083314, hex: '22dd55', name: 'GREEN'  },  // 2 → press 3
+      ]
+
+      const lights = lightDefs.map((def, j) => {
+        const lightY = houseY + 26 + j * 36     // vertical position inside housing
+        const lightX = houseX + houseW / 2      // horizontal centre of housing
+
+        // Dark socket (always visible)
+        const dimGfx = this.add.graphics().setDepth(6)
+        dimGfx.fillStyle(0x000000, 0.9)
+        dimGfx.fillCircle(lightX, lightY, 15)
+        dimGfx.fillStyle(def.dimCol, 0.5)
+        dimGfx.fillCircle(lightX, lightY, 13)
+        dimGfx.lineStyle(1, def.col, 0.2)
+        dimGfx.strokeCircle(lightX, lightY, 13)
+
+        // Lit graphic — starts FULLY INVISIBLE, only shown during sequence
+        const litGfx = this.add.graphics().setDepth(7).setAlpha(0)
+        litGfx.fillStyle(def.col, 1)
+        litGfx.fillCircle(lightX, lightY, 13)
+        // Specular
+        litGfx.fillStyle(0xffffff, 0.5)
+        litGfx.fillCircle(lightX - 4, lightY - 4, 4)
+        // Inner bloom ring
+        litGfx.lineStyle(6, def.col, 0.5)
+        litGfx.strokeCircle(lightX, lightY, 18)
+        // Outer bloom ring
+        litGfx.lineStyle(12, def.col, 0.18)
+        litGfx.strokeCircle(lightX, lightY, 25)
+
+        // Colour label to the right of housing — shown ONLY in popup, not in-game
+        // (we keep these hidden during the sequence)
+        const labelTxt = this.add.text(
+          houseX + houseW + 10, lightY,
+          `${j + 1}`, {
+            fontFamily: '"Rajdhani", sans-serif', fontSize: '14px',
+            color: `#${def.hex}`, fontStyle: 'bold',
+            stroke: '#000000', strokeThickness: 2,
+          }
+        ).setOrigin(0, 0.5).setDepth(7).setAlpha(0.3)  // dim; not used as a cheat sheet
+
+        return {
+          dimGfx, litGfx, labelTxt,
+          worldX: lightX,   // ← correct world-space X for floating labels
+          worldY: lightY,   // ← correct world-space Y
+          col:    def.col,
+          hex:    def.hex,
+          name:   def.name,
+        }
+      })
+
+      // Road dashes on the ground near the blocker
       const roadGfx = this.add.graphics().setDepth(1)
-      for (let m = 0; m < 5; m++) {
-        roadGfx.fillStyle(0xffcc44, 0.25)
-        roadGfx.fillRect(blockerX + 20 + m * 24, gy + 2, 14, 5)
+      for (let m = 0; m < 6; m++) {
+        roadGfx.fillStyle(0xffcc44, 0.22)
+        roadGfx.fillRect(gx - 140 + m * 24, gy + 2, 14, 5)
       }
 
       this._memoryGates.push({
-        gate:       { x: gx, y: gy - 60 },
+        gateX:    gx,
+        gateWorldY: gy - 80,   // used for floating text
         blocker, barrierGfx, structGfx,
         lights, signTxt, alertDot, seqBadge, roadGfx,
         opened:     false,
         cfg,
         sequence:   this._genGateSequence(cfg.seqLen),
+        // trigger zone: player must be within 60px of the blocker
+        triggerX:   gx - 60,
       })
     })
   }
@@ -1435,84 +1327,110 @@ _buildMemoryGates(pal) {
   _reshuffleGate(gateIdx) {
     const g    = this._memoryGates[gateIdx]
     g.sequence = this._genGateSequence(g.cfg.seqLen)
-    this._showFloat(g.gate.x, g.gate.y - 60, '🔄 NEW PATTERN!', '#ff00aa')
   }
 
+  // ── Memory game update (called every frame for year 1) ────────────────────
   _updateMemoryGame(time) {
+    if (this._memoryActive || this._memoryLocked) return
+
     const px = this.player.x
+
     this._memoryGates.forEach((g, i) => {
       if (g.opened) return
-      if (Math.abs(px - g.gate.x) < 230 && !this._memoryActive && !this._memoryLocked) {
+
+      // Only trigger when player walks INTO the blocker zone
+      // Player is moving right and is within 60px of the gate
+      if (px >= g.triggerX && px < g.gateX + 10) {
         this._startGateMemory(i)
       }
     })
   }
 
   _startGateMemory(gateIdx) {
+    if (this._memoryActive) return
     this._memoryActive = true
     this._memoryLocked = true
+
     const g = this._memoryGates[gateIdx]
 
-    this._showFloat(g.gate.x, g.gate.y - 55, '👀 WATCH THE LIGHTS!', '#00e5ff')
+    // Stop player movement
     this.player.setVelocityX(0)
     this.player.body.moves = false
 
-    this.time.delayedCall(800, () => this._playPanelSequence(gateIdx))
+    // Show watch prompt in world space near the light
+    this._showFloat(g.gateX - 80, g.gateWorldY - 60, '👀 MEMORISE THE LIGHTS!', '#00e5ff')
+
+    // Small delay before sequence starts
+    this.time.delayedCall(900, () => this._playPanelSequence(gateIdx))
   }
 
   _playPanelSequence(gateIdx) {
     const g    = this._memoryGates[gateIdx]
     const seq  = g.sequence
     const cfg  = g.cfg
-    const STEP = 700   // ms per light — longer so it's actually readable
+    const STEP = 800   // ms per light — slow enough to actually read
 
-    // Build expected answer
+    // ── Build expected answer based on twist ────────────────────────────────
     let ansSeq = [...seq]
     if (cfg.twist === 'reverse') ansSeq = [...seq].reverse()
     if (cfg.twist === 'shift')   ansSeq = seq.map(v => (v + 1) % 3)
+    // ansSeq[i] is 0/1/2 → player types 1/2/3
     g.expectedStr = ansSeq.map(v => v + 1).join('')
 
-    seq.forEach((lIdx, step) => {
+    // Ensure ALL lights start invisible before playing
+    g.lights.forEach(lt => {
+      lt.litGfx.setAlpha(0)
+    })
+
+    seq.forEach((lightIdx, step) => {
+      const lt = g.lights[lightIdx]
+
       // Flash ON
       this.time.delayedCall(step * STEP, () => {
-        const lt = g.lights[lIdx]
+        lt.litGfx.setAlpha(1)
 
-        // Snap lit circle fully visible
-lt.litGfx.setAlpha(1)
-        lt.numTxt.setAlpha(1)
-
-        // Colour-tinted screen flash
+        // Screen colour flash (very subtle)
         const r = (lt.col >> 16) & 0xff
         const gn = (lt.col >> 8) & 0xff
         const b  = lt.col & 0xff
-        this.cameras.main.flash(80, r, gn, b, true)
+        this.cameras.main.flash(100, r, gn, b, true)
 
-        // Step counter floating above light
-        const lbl = this.add.text(lt.lx, lt.ly - 38, `${step + 1}`, {
-          fontFamily: '"Rajdhani", sans-serif', fontSize: '26px',
-          color: `#${lt.hex}`, fontStyle: 'bold',
-          stroke: '#000000', strokeThickness: 3,
-        }).setOrigin(0.5).setDepth(20)
-        this.tweens.add({ targets: lbl, y: lbl.y - 28, alpha: 0, duration: 500, onComplete: () => lbl.destroy() })
+        // Step number floats UP in world space
+        const lbl = this.add.text(
+          lt.worldX, lt.worldY - 30,
+          `${step + 1}`, {
+            fontFamily: '"Rajdhani", sans-serif', fontSize: '22px',
+            color: `#${lt.hex}`, fontStyle: 'bold',
+            stroke: '#000000', strokeThickness: 3,
+          }
+        ).setOrigin(0.5).setDepth(20)
+        this.tweens.add({
+          targets: lbl, y: lbl.y - 30, alpha: 0,
+          duration: 600, ease: 'Power2',
+          onComplete: () => lbl.destroy(),
+        })
       })
 
-      // Flash OFF — 60% through the step window
-      this.time.delayedCall(step * STEP + STEP * 0.60, () => {
-g.lights[lIdx].litGfx.setAlpha(0)
-        g.lights[lIdx].numTxt.setAlpha(0.45)
+      // Flash OFF after 55% of the step window
+      this.time.delayedCall(step * STEP + STEP * 0.55, () => {
+        lt.litGfx.setAlpha(0)
       })
     })
 
-    // After all flashes done → hint + popup
-    const totalDuration = seq.length * STEP + 200
+    // After sequence ends → show twist hint then open popup
+    const totalDuration = seq.length * STEP + 300
     this.time.delayedCall(totalDuration, () => {
+      this.player.body.moves = true   // re-enable movement
+
       if (cfg.twist !== 'normal') {
-        this._showFloat(g.gate.x, g.gate.y - 75, `⚠ ${cfg.hint}`, '#ffaa00', Math.floor(this.scale.width / 50))
+        this._showFloat(
+          g.gateX - 80, g.gateWorldY - 70,
+          `⚠ ${cfg.hint}`, '#ffaa00'
+        )
+        this.time.delayedCall(1600, () => this._showGatePopup(gateIdx))
+      } else {
+        this.time.delayedCall(400, () => this._showGatePopup(gateIdx))
       }
-      this.time.delayedCall(cfg.twist !== 'normal' ? 1400 : 500, () => {
-        this.player.body.moves = true
-        this._showGatePopup(gateIdx)
-      })
     })
   }
 
@@ -1520,130 +1438,283 @@ g.lights[lIdx].litGfx.setAlpha(0)
     const g   = this._memoryGates[gateIdx]
     const cfg = g.cfg
 
-    // Remove any existing popup
+    // Remove stale overlay
     const old = document.getElementById('_mgOverlay')
     if (old) old.remove()
 
-    const accentHex = ['#ff3333', '#ffaa00', '#cc44ff'][gateIdx]
+    const accentHex  = ['#ff3333', '#ffaa00', '#cc44ff'][gateIdx]
+    const accentRgb  = ['255,51,51', '255,170,0', '204,68,255'][gateIdx]
 
     const overlay = document.createElement('div')
     overlay.id = '_mgOverlay'
     overlay.style.cssText = [
-      'position:fixed','inset:0','z-index:99999',
-      'display:flex','align-items:center','justify-content:center',
-      'background:rgba(4,2,12,0.88)',
+      'position:fixed', 'inset:0', 'z-index:99999',
+      'display:flex', 'align-items:center', 'justify-content:center',
+      `background:rgba(4,2,14,0.92)`,
       'font-family:"Nunito",sans-serif',
-      'animation:_mgIn 0.22s ease',
+      'backdrop-filter:blur(4px)',
+      '-webkit-backdrop-filter:blur(4px)',
     ].join(';')
 
-    const twistDesc = {
-      normal:  'Type the colours in the <b>same order</b> you saw them.',
-      reverse: '⚠️ Type the colours in <b>REVERSE</b> order — last first!',
-      shift:   '🎓 Each colour shifts +1 &nbsp;( R→Y &nbsp; Y→G &nbsp; G→R )',
-    }
+    const seqLen = cfg.seqLen
 
     overlay.innerHTML = `
       <style>
-        @keyframes _mgIn  { from{opacity:0;transform:scale(.9)} to{opacity:1;transform:scale(1)} }
-        @keyframes _mgShk { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-9px)} 75%{transform:translateX(9px)} }
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Nunito:wght@400;600;700&display=swap');
+
+        @keyframes _mgFadeIn   { from{opacity:0;transform:translateY(16px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes _mgShake    { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-10px)} 40%{transform:translateX(10px)} 60%{transform:translateX(-7px)} 80%{transform:translateX(7px)} }
+        @keyframes _mgPulse    { 0%,100%{box-shadow:0 0 0 0 ${accentHex}55} 50%{box-shadow:0 0 0 8px ${accentHex}00} }
+        @keyframes _mgGlow     { 0%,100%{text-shadow:0 0 8px ${accentHex}} 50%{text-shadow:0 0 20px ${accentHex}, 0 0 40px ${accentHex}} }
+        @keyframes _mgBlink    { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
         #_mgCard {
-          background: linear-gradient(160deg,#0b0920 0%,#160d2a 100%);
-          border: 2px solid ${accentHex};
+          background: linear-gradient(145deg, #0c0922 0%, #130d28 50%, #0a0818 100%);
+          border: 1.5px solid ${accentHex};
           border-radius: 20px;
-          padding: 16px 16px 14px;
-          width: min(420px, 96vw);
-          max-height: 85vh;
+          padding: 24px 20px 20px;
+          width: min(460px, 95vw);
+          max-height: 90vh;
           overflow-y: auto;
-          box-shadow: 0 0 50px ${accentHex}55, inset 0 0 30px #00000044;
-          display: flex; flex-direction: column; gap: 16px;
+          box-shadow:
+            0 0 40px ${accentHex}44,
+            0 0 80px ${accentHex}22,
+            inset 0 1px 0 rgba(255,255,255,0.06),
+            inset 0 0 40px rgba(0,0,0,0.6);
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          animation: _mgFadeIn 0.28s cubic-bezier(0.34,1.56,0.64,1);
+          position: relative;
+          overflow: hidden;
         }
-        #_mgCard h2 {
-          margin:0; text-align:center; font-size:1.1rem;
-          letter-spacing:3px; color:${accentHex};
-          font-family:"Rajdhani",sans-serif; font-weight:700;
+        #_mgCard::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, ${accentHex}08 0%, transparent 60%);
+          pointer-events: none;
+          border-radius: 20px;
         }
+
+        ._mgTitle {
+          text-align: center;
+          font-family: 'Rajdhani', sans-serif;
+          font-size: clamp(1rem, 4vw, 1.3rem);
+          font-weight: 700;
+          color: ${accentHex};
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          animation: _mgGlow 2s ease-in-out infinite;
+          margin: 0;
+        }
+
+        ._mgDivider {
+          height: 1px;
+          background: linear-gradient(90deg, transparent, ${accentHex}66, transparent);
+          margin: 0 -4px;
+        }
+
         ._mgTwist {
-          background:${accentHex}18; border:1px solid ${accentHex}66;
-          border-radius:10px; padding:10px 14px;
-          color:#ddd; font-size:0.82rem; line-height:1.6; text-align:center;
+          background: ${accentHex}14;
+          border: 1px solid ${accentHex}44;
+          border-radius: 12px;
+          padding: 10px 14px;
+          color: #ccc;
+          font-size: clamp(0.75rem, 3vw, 0.88rem);
+          line-height: 1.6;
+          text-align: center;
         }
+        ._mgTwist b { color: ${accentHex}; }
+
         ._mgLegend {
-          display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+          display: flex;
+          gap: 8px;
+          justify-content: center;
+          flex-wrap: wrap;
         }
         ._mgChip {
-          border-radius:8px; padding:5px 14px; font-size:0.8rem;
-          font-weight:700; letter-spacing:1px; border:1.5px solid;
+          border-radius: 10px;
+          padding: 6px 16px;
+          font-size: clamp(0.72rem, 2.8vw, 0.82rem);
+          font-weight: 700;
+          letter-spacing: 1px;
+          border: 1.5px solid;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-family: 'Rajdhani', sans-serif;
         }
-#_mgInput {
-          background:#08061a; border:2px solid #333; color:#fff;
-          font-size:1.6rem; letter-spacing:.4rem; text-align:center;
-          border-radius:12px; padding:8px 4px; width:100%;
-          outline:none; transition:border-color .2s, box-shadow .2s;
-          caret-color:${accentHex};
+        ._mgDot {
+          width: 10px; height: 10px;
+          border-radius: 50%;
+          display: inline-block;
+          flex-shrink: 0;
+        }
+
+        ._mgSeqInfo {
+          text-align: center;
+          color: #55537a;
+          font-size: clamp(0.7rem, 2.5vw, 0.78rem);
+          letter-spacing: 2px;
+          text-transform: uppercase;
+        }
+
+        #_mgInput {
+          background: #060413;
+          border: 2px solid #2a2548;
+          color: #fff;
+          font-size: clamp(1.4rem, 5vw, 1.8rem);
+          letter-spacing: 0.5rem;
+          text-align: center;
+          border-radius: 14px;
+          padding: 10px 8px;
+          width: 100%;
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          caret-color: ${accentHex};
           box-sizing: border-box;
+          font-family: 'Rajdhani', sans-serif;
+          font-weight: 700;
         }
-        #_mgInput:focus { border-color:${accentHex}; box-shadow:0 0 14px ${accentHex}44 }
-#_mgSubmit {
-          background:${accentHex}; color:#000; font-weight:800;
-          font-size:1rem; border:none; border-radius:12px;
-          padding:11px 0; cursor:pointer; letter-spacing:3px;
-          transition:opacity .15s, transform .1s;
-          font-family:"Rajdhani",sans-serif;
+        #_mgInput:focus {
+          border-color: ${accentHex};
+          box-shadow: 0 0 0 3px ${accentHex}33, 0 0 20px ${accentHex}22;
+        }
+        #_mgInput.shake {
+          animation: _mgShake 0.4s ease;
+          border-color: #ff4455;
+          box-shadow: 0 0 0 3px #ff445533;
+        }
+
+        ._mgInputRow {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        #_mgSubmit {
+          background: linear-gradient(135deg, ${accentHex} 0%, ${accentHex}cc 100%);
+          color: #000;
+          font-weight: 800;
+          font-size: clamp(0.85rem, 3.5vw, 1rem);
+          border: none;
+          border-radius: 14px;
+          padding: 12px 20px;
+          cursor: pointer;
+          letter-spacing: 2px;
+          transition: opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+          font-family: 'Rajdhani', sans-serif;
+          white-space: nowrap;
+          animation: _mgPulse 2s ease-in-out infinite;
           -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
         }
-        #_mgSubmit:hover { opacity:.88; transform:scale(1.02) }
+        #_mgSubmit:hover  { opacity: 0.9; transform: scale(1.04); }
+        #_mgSubmit:active { transform: scale(0.97); }
+
         #_mgErr {
-          color:#ff4455; font-size:.82rem; text-align:center;
-          display:none; animation:_mgShk .35s;
+          color: #ff5566;
+          font-size: clamp(0.75rem, 3vw, 0.84rem);
+          text-align: center;
+          display: none;
+          padding: 8px;
+          border-radius: 10px;
+          background: #ff000018;
+          border: 1px solid #ff000044;
         }
-        ._mgSeqLen {
-          text-align:center; color:#666; font-size:.78rem; letter-spacing:2px;
+
+        ._mgHint {
+          text-align: center;
+          color: #44445a;
+          font-size: clamp(0.65rem, 2.5vw, 0.72rem);
+          letter-spacing: 1px;
         }
       </style>
+
       <div id="_mgCard">
-        <h2>${cfg.label.toUpperCase()} — MEMORY CHECK</h2>
-        <div class="_mgTwist">${twistDesc[cfg.twist]}</div>
-        <div class="_mgLegend">
-          <div class="_mgChip" style="color:#ff4455;border-color:#ff4455">1 = RED</div>
-          <div class="_mgChip" style="color:#ffcc00;border-color:#ffcc00">2 = YELLOW</div>
-          <div class="_mgChip" style="color:#22dd55;border-color:#22dd55">3 = GREEN</div>
+        <h2 class="_mgTitle">${cfg.label} — MEMORY CHECK</h2>
+        <div class="_mgDivider"></div>
+
+        <div class="_mgTwist">
+          ${cfg.twist === 'normal'  ? 'Type the colours in the <b>same order</b> you saw them.' : ''}
+          ${cfg.twist === 'reverse' ? '⚠️ Type in <b>REVERSE</b> order — last light first!' : ''}
+          ${cfg.twist === 'shift'   ? '🔄 Each colour <b>shifts +1</b> &nbsp;( R→Y &nbsp; Y→G &nbsp; G→R )' : ''}
         </div>
-        <div class="_mgSeqLen">SEQUENCE LENGTH: ${g.cfg.seqLen} digits</div>
-        <input id="_mgInput" type="text" maxlength="${g.cfg.seqLen}"
-               placeholder="${'·'.repeat(g.cfg.seqLen)}" autocomplete="off" spellcheck="false" />
-        <button id="_mgSubmit">SUBMIT ↵</button>
-        <div id="_mgErr">❌ Wrong! The pattern has been refreshed.</div>
+
+        <div class="_mgLegend">
+          <div class="_mgChip" style="color:#ff4455;border-color:#ff4455">
+            <span class="_mgDot" style="background:#ff4455;box-shadow:0 0 6px #ff4455"></span>
+            1 = RED
+          </div>
+          <div class="_mgChip" style="color:#ffcc00;border-color:#ffcc00">
+            <span class="_mgDot" style="background:#ffcc00;box-shadow:0 0 6px #ffcc00"></span>
+            2 = YELLOW
+          </div>
+          <div class="_mgChip" style="color:#22dd55;border-color:#22dd55">
+            <span class="_mgDot" style="background:#22dd55;box-shadow:0 0 6px #22dd55"></span>
+            3 = GREEN
+          </div>
+        </div>
+
+        <div class="_mgSeqInfo">${seqLen} DIGIT SEQUENCE — TYPE YOUR ANSWER BELOW</div>
+
+        <div class="_mgInputRow">
+          <input
+            id="_mgInput"
+            type="text"
+            inputmode="numeric"
+            maxlength="${seqLen}"
+            placeholder="${'·'.repeat(seqLen)}"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="_mgSubmit">GO ↵</button>
+        </div>
+
+        <div id="_mgErr"></div>
+        <div class="_mgHint">Only digits 1, 2, 3 are accepted</div>
       </div>
     `
 
     document.body.appendChild(overlay)
 
-    const inp  = document.getElementById('_mgInput')
-    const btn  = document.getElementById('_mgSubmit')
-    const err  = document.getElementById('_mgErr')
+    const inp = document.getElementById('_mgInput')
+    const btn = document.getElementById('_mgSubmit')
+    const err = document.getElementById('_mgErr')
 
-    inp.focus()
+    // Auto-focus after a short delay (helps mobile keyboards)
+    setTimeout(() => inp.focus(), 120)
 
-    // Only allow 1 2 3
+    // Filter: only allow 1, 2, 3
     inp.addEventListener('input', () => {
-      inp.value = inp.value.replace(/[^123]/g, '').slice(0, g.cfg.seqLen)
+      inp.value = inp.value.replace(/[^123]/g, '').slice(0, seqLen)
+      inp.classList.remove('shake')
     })
 
     const onSubmit = () => {
       const val = inp.value.trim()
+
+      if (val.length < seqLen) {
+        err.style.display = 'block'
+        err.textContent   = `Enter all ${seqLen} digits first!`
+        inp.classList.remove('shake')
+        void inp.offsetWidth
+        inp.classList.add('shake')
+        return
+      }
+
       if (val === g.expectedStr) {
-        // ── Correct ──────────────────────────────────────────────────────────
-        overlay.style.transition = 'opacity .3s'
+        // ── CORRECT ─────────────────────────────────────────────────────────
+        overlay.style.transition = 'opacity 0.3s'
         overlay.style.opacity    = '0'
         setTimeout(() => overlay.remove(), 320)
 
         g.opened           = true
         this._memoryActive = false
-        this._memoryLocked = false   // ← allow next gate to trigger
+        this._memoryLocked = false
 
-
-// Destroy all gate visuals
-g.barrierGfx.destroy()
+        // Destroy all gate visuals
+        g.barrierGfx.destroy()
         g.blocker.destroy()
         g.structGfx.destroy()
         g.signTxt.destroy()
@@ -1653,38 +1724,47 @@ g.barrierGfx.destroy()
         g.lights.forEach(lt => {
           lt.dimGfx.destroy()
           lt.litGfx.destroy()
-          lt.numTxt.destroy()
+          lt.labelTxt.destroy()
         })
-        this._showFloat(g.gate.x, g.gate.y - 50, '✅ CHECKPOINT CLEARED!', '#00ff88')
+
+        this._showFloat(g.gateX - 80, g.gateWorldY - 60, '✅ CHECKPOINT CLEARED!', '#00ff88')
         this.cameras.main.flash(500, 0, 255, 120)
-        this.cameras.main.shake(180, 0.007)
+        this.cameras.main.shake(200, 0.008)
+
+        GS.score += 50 * (gateIdx + 1)
 
       } else {
-        // ── Wrong ────────────────────────────────────────────────────────────
-        err.style.display   = 'block'
-        err.style.animation = 'none'
-        void err.offsetWidth
-        err.style.animation = '_mgShk .35s'
-        inp.style.borderColor = '#ff4455'
-        inp.value = ''
+        // ── WRONG ───────────────────────────────────────────────────────────
+        err.style.display = 'block'
+        err.textContent   = '❌ Wrong sequence! Pattern refreshed — watch again.'
+        inp.value         = ''
+        inp.classList.remove('shake')
+        void inp.offsetWidth
+        inp.classList.add('shake')
 
         setTimeout(() => {
           overlay.remove()
-          this._showFloat(this.player.x, this.player.y - 45, '💀 WRONG! -12 HP', '#ff0000')
+
+          this._showFloat(this.player.x, this.player.y - 50, '💀 WRONG! −12 HP', '#ff0000')
           this.cameras.main.shake(450, 0.018)
           this._combat.takeDamage(12, this.player)
 
-          this.time.delayedCall(1300, () => {
-            this._reshuffleGate(gateIdx)
+          // Reshuffle and replay after a short pause
+          this._reshuffleGate(gateIdx)
+
+          this.time.delayedCall(800, () => {
             this._memoryActive = false
             this._memoryLocked = false
+            // Player can now walk away and come back, or stay and retrigger
           })
-        }, 1300)
+        }, 1400)
       }
     }
 
     btn.addEventListener('click', onSubmit)
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter') onSubmit() })
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') onSubmit()
+    })
   }
 
   _finishGame() {
@@ -1701,7 +1781,6 @@ g.barrierGfx.destroy()
     const cardW = W * 0.84, cardH = H * 0.82
     const cardX = W / 2,    cardY = H / 2
 
-    // Card BG
     const cardBG = this.add.graphics()
     cardBG.fillStyle(0x08060f, 1)
     cardBG.fillRoundedRect(cardX - cardW / 2, cardY - cardH / 2, cardW, cardH, 22)
@@ -1711,26 +1790,22 @@ g.barrierGfx.destroy()
     cardBG.strokeRoundedRect(cardX - cardW / 2 + 8, cardY - cardH / 2 + 8, cardW - 16, cardH - 16, 17)
     container.add(cardBG)
 
-    // Title
     const title = this.add.text(cardX, cardY - cardH / 2 + 44, 'YEAR 2 REPORT CARD', {
       fontFamily: '"Rajdhani", sans-serif', fontSize: '28px',
       fontStyle: 'bold', fill: '#ffbb55', letterSpacing: 3,
     }).setOrigin(0.5).setScale(0)
     container.add(title)
 
-    // Divider line
     const divGfx = this.add.graphics()
     divGfx.lineStyle(1, 0xffbb55, 0.28)
     divGfx.lineBetween(cardX - cardW * 0.4, cardY - cardH / 2 + 70, cardX + cardW * 0.4, cardY - cardH / 2 + 70)
     container.add(divGfx)
 
-    // Layout constants
     const leftX   = cardX - cardW * 0.40
     const startY  = cardY - cardH / 2 + 90
     const rowH    = 78
     const entries = []
 
-    // ── Row helper ────────────────────────────────────────────────────────
     const addRow = (i, keyStr, valStr, valColor) => {
       const ky = startY + i * rowH
       const k  = this.add.text(leftX, ky, keyStr, {
@@ -1746,11 +1821,10 @@ g.barrierGfx.destroy()
       entries.push(k, v)
     }
 
-    addRow(0, 'FRIENDS MADE',         'For Life 🫂',                            '#00ff88')
-    addRow(1, 'RELATIONSHIP STATUS',  'Still single  (Paras sir still winning tho 💀)', '#ff88cc')
-    addRow(2, 'MEMORY CHECKPOINTS',   '3 / 3  —  galaxy brain unlocked',        '#44aaff')
+    addRow(0, 'FRIENDS MADE',        'For Life 🫂',                                  '#00ff88')
+    addRow(1, 'RELATIONSHIP STATUS', 'Still single  (Paras sir still winning tho 💀)', '#ff88cc')
+    addRow(2, 'MEMORY CHECKPOINTS',  '3 / 3  —  galaxy brain unlocked',              '#44aaff')
 
-    // CGPA row — key label only, image fills the value slot
     const cgpaY = startY + 3 * rowH
     const cgpaK = this.add.text(leftX, cgpaY, 'CGPA', {
       fontFamily: '"Nunito", sans-serif', fontSize: '10px',
@@ -1759,7 +1833,6 @@ g.barrierGfx.destroy()
     container.add(cgpaK)
     entries.push(cgpaK)
 
-    // Salman meme image — directly below the CGPA key label
     const memeImg = this.add.image(leftX + 80, cgpaY + 52, 'salman_meme')
       .setOrigin(0.5).setDisplaySize(148, 100).setAlpha(0)
     container.add(memeImg)
@@ -1771,8 +1844,7 @@ g.barrierGfx.destroy()
     container.add(memeCap)
     entries.push(memeCap)
 
-    // Score strip
-    const scoreY  = cardY + cardH / 2 - 70
+    const scoreY   = cardY + cardH / 2 - 70
     const scoreTxt = this.add.text(cardX, scoreY,
       `SCORE  ${GS.score}   ·   YEAR 2 COMPLETE`, {
       fontFamily: '"Nunito", sans-serif', fontSize: '12px',
@@ -1781,7 +1853,6 @@ g.barrierGfx.destroy()
     container.add(scoreTxt)
     entries.push(scoreTxt)
 
-    // Continue prompt
     const contY   = cardY + cardH / 2 - 38
     const contTxt = this.add.text(cardX, contY, 'CLICK TO CONTINUE', {
       fontFamily: '"Nunito", sans-serif', fontSize: '13px',
@@ -1789,7 +1860,6 @@ g.barrierGfx.destroy()
     }).setOrigin(0.5).setAlpha(0)
     container.add(contTxt)
 
-    // ── Animations ────────────────────────────────────────────────────────
     this.tweens.add({ targets: title, scale: 1, duration: 800, ease: 'Elastic.out(1,0.5)' })
     entries.forEach((el, idx) => {
       this.tweens.add({
@@ -1810,7 +1880,6 @@ g.barrierGfx.destroy()
       })
     })
 
-    // Amber confetti
     for (let i = 0; i < 38; i++) {
       const col = Phaser.Utils.Array.GetRandom([0xffbb55, 0xff8800, 0xffeebb, 0x00e5ff, 0xffffff])
       const c   = this.add.circle(
@@ -1828,7 +1897,7 @@ g.barrierGfx.destroy()
     }
   }
 
-  // ── Floating text ─────────────────────────────────────────────────────────
+  // ── Floating text (world space) ───────────────────────────────────────────
   _showFloat(x, y, text, color = '#ffffff', size) {
     const W  = this.scale.width
     const sz = size ?? Math.floor(W / 46)

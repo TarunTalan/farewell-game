@@ -269,6 +269,7 @@ export class Combat {
     // Death — restart current level (not from beginning)
     if (GS.health <= 0) {
       s._levelComplete = true
+      s.sound.play('die')
       s.cameras.main.shake(500, 0.04)
 
       const W2 = s.scale.width, H2 = s.scale.height

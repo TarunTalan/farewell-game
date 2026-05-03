@@ -28,6 +28,14 @@ const CARD_ACCENTS = [
 export class CharSelectScene extends Phaser.Scene {
   constructor() { super('CharSelectScene') }
 
+  preload() {
+    this.load.audio('shinchanbgm', 'audio/shinchanbgm.mp3')
+    this.load.video('ankit_vid', 'audio/ankit.mp4')
+    this.load.audio('dorabgm', 'audio/dorabgm.mp3')
+    this.load.audio('yeahboiii', 'audio/yeahboiii.mp3')
+    this.load.audio('rachit_bgm', 'audio/rachit.mp3')
+  }
+
   create() {
     this.W = this.scale.width
     this.H = this.scale.height
@@ -372,7 +380,7 @@ export class CharSelectScene extends Phaser.Scene {
     }
 
     // ── Name
-    const nameY    = -CARD_H / 2 + Math.round(CARD_H * 0.575)
+    const nameY    = -CARD_H / 2 + Math.round(CARD_H * 0.55)
     const nameSize = this._fs(4.8, 16, 26)
     const nameTxt  = this.add.text(0, nameY, s.name, {
       fontFamily:      '"Rajdhani", "Arial Black", sans-serif',
@@ -382,11 +390,12 @@ export class CharSelectScene extends Phaser.Scene {
       align:           'center',
       stroke:          '#000000',
       strokeThickness: 1,
-    }).setOrigin(0.5)
+      wordWrap:        { width: CARD_W * 0.85 }
+    }).setOrigin(0.5, 0)
     nameTxt.setShadow(0, 1, ac.glow, 8, true)
 
     // ── Title/role
-    const titleY2   = nameY + nameSize + 5
+    const titleY2   = nameY + nameTxt.height + 4
     const titleSize = this._fs(3, 10, 14)
     const titleTxt  = this.add.text(0, titleY2, s.title.toUpperCase(), {
       fontFamily:    '"Nunito", sans-serif',
@@ -394,10 +403,11 @@ export class CharSelectScene extends Phaser.Scene {
       fill:          ac.text,
       align:         'center',
       letterSpacing: 3,
-    }).setOrigin(0.5)
+      wordWrap:      { width: CARD_W * 0.85 }
+    }).setOrigin(0.5, 0)
 
     // ── Tech Stack Badge
-    const techY = titleY2 + titleSize + 12
+    const techY = titleY2 + titleTxt.height + 14
     const techBg = this.add.graphics()
     const techTag = s.techStack || 'DEVELOPER'
     const techSize = this._fs(2.4, 8, 11)
@@ -413,10 +423,10 @@ export class CharSelectScene extends Phaser.Scene {
       fill: ac.text,
       fontStyle: 'bold',
       letterSpacing: 1
-    }).setOrigin(0.5)
+    }).setOrigin(0.5, 0)
 
     // ── Divider with diamond (shifted down)
-    const divY = techY + 16
+    const divY = techY + techTxt.height + 14
     const divG = this.add.graphics()
     divG.lineStyle(1, ac.border, 0.35)
     divG.lineBetween(-CARD_W * 0.38, divY, CARD_W * 0.38, divY)
@@ -437,7 +447,7 @@ export class CharSelectScene extends Phaser.Scene {
     }).setOrigin(0.5, 0)
 
     // ── Bio (More spacing)
-    const bioY   = funnyY + (s.funnyLine ? 24 : 10)
+    const bioY   = funnyY + funnyTxt.height + 8
     const bioTxt = this.add.text(0, bioY, s.bio || s.desc || '', {
       fontFamily:  '"Nunito", sans-serif',
       fontSize:    this._fs(2.6, 8, 12),
@@ -753,6 +763,26 @@ export class CharSelectScene extends Phaser.Scene {
     const s  = SENIORS[this._index]
     const ac = CARD_ACCENTS[this._index % CARD_ACCENTS.length]
 
+    if (this._activeCharAudio) {
+      if (this._activeCharAudio.destroy) this._activeCharAudio.destroy()
+      else this._activeCharAudio.stop()
+      this._activeCharAudio = null
+    }
+
+    if (s.id === 'paras') {
+      this._activeCharAudio = this.sound.add('shinchanbgm', { loop: true, volume: 0.8 })
+      this._activeCharAudio.play()
+    } else if (s.id === 'ankit_varshney') {
+      this._activeCharAudio = this.add.video(0, 0, 'ankit_vid').setVisible(false)
+      this._activeCharAudio.play(true) // loop
+    } else if (s.id === 'lakshya_goel') {
+      this._activeCharAudio = this.sound.add('dorabgm', { loop: true, volume: 0.8 })
+      this._activeCharAudio.play()
+    } else if (s.id === 'rachit_katiyar') {
+      this._activeCharAudio = this.sound.add('rachit_bgm', { loop: true, volume: 0.8 })
+      this._activeCharAudio.play()
+    }
+
     this._drawConfirmBg(ac.border, false)
     this._confirmTxt.setShadow(0, 2, ac.glow, 12, true)
 
@@ -776,6 +806,14 @@ export class CharSelectScene extends Phaser.Scene {
     const ac = CARD_ACCENTS[this._index % CARD_ACCENTS.length]
     gameState.selectedSenior = s.id
     this.input.enabled = false
+
+    if (this._activeCharAudio) {
+      if (this._activeCharAudio.destroy) this._activeCharAudio.destroy()
+      else this._activeCharAudio.stop()
+      this._activeCharAudio = null
+    }
+    
+    this.sound.play('yeahboiii', { volume: 1.5 })
 
     // Dim non-active
     this._cardSlots.forEach(({ container, realIdx }) => {

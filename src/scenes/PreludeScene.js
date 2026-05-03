@@ -37,7 +37,7 @@ const MEMBERS = [
     color: 0xb91c1c, accent: '#ef4444',
     skin: 0xc8825a, hair: 0x150900,
     shirt: 0x7f1d1d, pants: 0x2d0a0a,
-    msg: 'CRED ki part, Groww ki part,\n PW ki party ,\n sabki party lega re apun.',
+    msg: 'CRED ki party,\nGroww ki party,\nPW ki party...\nsabki party lega apun.',
     role: 'THE CHAOS AGENT',
     features: { hair: 'messy', eyes: 'neutral', style: 'polo' }
   },
@@ -48,7 +48,7 @@ const PHASE3_DIALOGUE = [
   { speaker: 'UNKNOWN CALLER', text: 'Hello, main CSI se bol rha hu...', portrait: null, color: '#ef4444', side: 'left' },
   { speaker: 'UNKNOWN CALLER', text: 'Aur maine tumhare members chura liye hia kyunki barbari to hamse hogi nhi...', portrait: null, color: '#ef4444', side: 'left' },
   { speaker: 'UNKNOWN CALLER', text: 'Ab agar wapas chahiye to Si ke saare achievements hamare naam kardo.', portrait: null, color: '#ef4444', side: 'left' },
-  { speaker: 'DIVYANSH', text: 'CSI? Achievements?\nTumhe lagta hai hum itne kamzor hain?', portrait: 0, color: '#a855f7', side: 'right' },
+  { speaker: 'DIVYANSH', text: 'Ruko zara... CSI? Achievements?\nTumhe lagta hai hum itne kamzor hain?', portrait: 0, color: '#a855f7', side: 'right' },
   { speaker: 'DIVYANSH', text: 'Ab sirf ek hi option hai...', portrait: 0, color: '#a855f7', side: 'right' },
   { speaker: 'DIVYANSH', text: 'Unhe bulana hi padega.....', portrait: 0, color: '#f59e0b', side: 'right' },
 ]
@@ -188,52 +188,155 @@ function buildCharacterDataURL(member) {
 
 // ─── High-Fidelity Hacker Builder (RESTORED TO PREVIOUS BEST VERSION) ─────────
 function buildHackerDataURL(eyeColor = 0xff0000) {
-  return renderThreeJsTexture(300, 380, (scene, camera, renderer, W, H) => {
-    scene.add(new THREE.AmbientLight(0x050505, 0.2))
-    const rimLight = new THREE.DirectionalLight(eyeColor, 0.1); rimLight.position.set(-50, 100, 50); scene.add(rimLight)
-    const cloakMat = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.9 })
-    const rimMat = new THREE.MeshBasicMaterial({ color: eyeColor, transparent: true, opacity: 0.25 })
-    const cx = 0, by = -H / 2 + 30
-    const shoulders = new THREE.Mesh(new THREE.CapsuleGeometry(35, 120, 8, 24), cloakMat)
-    shoulders.rotation.z = Math.PI / 2; shoulders.position.set(cx, by + 130, -5); scene.add(shoulders)
-    const torso = new THREE.Mesh(new THREE.CylinderGeometry(40, 75, 160, 32), cloakMat)
-    torso.position.set(cx, by + 80, 0); scene.add(torso)
+  const ec = eyeColor
+  const ecHex = '#' + ec.toString(16).padStart(6, '0')
+  return renderThreeJsTexture(300, 420, (scene, camera, renderer, W, H) => {
+    // Pitch-dark ambient — silhouette only
+    scene.add(new THREE.AmbientLight(0x010101, 0.15))
+
+    // Subtle colored rim light from behind for edge definition
+    const rimLight = new THREE.DirectionalLight(ec, 0.08)
+    rimLight.position.set(-80, 120, -60); scene.add(rimLight)
+    const rimLight2 = new THREE.DirectionalLight(ec, 0.05)
+    rimLight2.position.set(80, 80, -40); scene.add(rimLight2)
+
+    const cloakMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.95, metalness: 0 })
+    const darkMat = new THREE.MeshBasicMaterial({ color: 0x030303 })
+
+    const cx = 0, by = -H / 2 + 20
+
+    // ── BODY: Broad menacing torso
+    const torso = new THREE.Mesh(
+      new THREE.CylinderGeometry(42, 85, 180, 32),
+      cloakMat
+    )
+    torso.position.set(cx, by + 70, 0); scene.add(torso)
+
+    // ── SHOULDERS: Wide intimidating shoulders
+    const shoulders = new THREE.Mesh(
+      new THREE.CapsuleGeometry(38, 140, 8, 24),
+      cloakMat
+    )
+    shoulders.rotation.z = Math.PI / 2
+    shoulders.position.set(cx, by + 155, -5); scene.add(shoulders)
+
+    // ── HOOD: Deep cowl shape
     const hoodPoints = []
-    for (let i = 0; i < 15; i++) {
-      const t = i / 15
-      const rad = t < 0.3 ? 65 - t * 40 : 55 * Math.cos((t - 0.3) * 1.5)
-      hoodPoints.push(new THREE.Vector2(rad, i * 11))
+    for (let i = 0; i < 18; i++) {
+      const t = i / 18
+      let rad
+      if (t < 0.15)      rad = 70 - t * 50
+      else if (t < 0.4)  rad = 62 * Math.cos((t - 0.15) * 1.2)
+      else                rad = 50 * Math.cos((t - 0.15) * 1.3)
+      hoodPoints.push(new THREE.Vector2(Math.max(rad, 2), i * 10))
     }
     const hood = new THREE.Mesh(new THREE.LatheGeometry(hoodPoints, 32), cloakMat)
-    hood.position.set(cx, by + 145, 0); scene.add(hood)
-    const head = new THREE.Mesh(new THREE.SphereGeometry(45, 32, 32), new THREE.MeshBasicMaterial({ color: 0x000000 }))
-    head.position.set(cx, by + 210, -5); scene.add(head)
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(60, 3, 16, 32, Math.PI), rimMat)
-    rim.position.set(cx, by + 205, -5); rim.rotation.x = Math.PI / 2; scene.add(rim)
-    scene.add(new THREE.AmbientLight(0xffffff, 0.05))
+    hood.position.set(cx, by + 150, 0); scene.add(hood)
 
-    const eyeW = 42, eyeH = 18
-    const eyeShape = new THREE.Shape()
-    eyeShape.moveTo(-eyeW / 2, 0); eyeShape.quadraticCurveTo(0, eyeH, eyeW / 2, 0); eyeShape.quadraticCurveTo(0, -eyeH * 0.3, -eyeW / 2, 0)
-    const eyeGeo = new THREE.ShapeGeometry(eyeShape)
+    // ── HEAD: Invisible inside hood
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(48, 32, 32),
+      new THREE.MeshBasicMaterial({ color: 0x000000 })
+    )
+    head.position.set(cx, by + 230, -8); scene.add(head)
 
-    ;[[-40, by + 215, 48], [40, by + 215, 48]].forEach(([ox, oy, oz], i) => {
-      const eg = new THREE.Group(); eg.position.set(ox, oy, oz); if (i === 1) eg.scale.x = -1
-      eg.add(new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0x110000 })))
-      const iris = new THREE.Mesh(new THREE.CircleGeometry(eyeH * 0.8, 24), new THREE.MeshBasicMaterial({ color: eyeColor })); iris.position.z = 1; eg.add(iris)
-      const pupil = new THREE.Mesh(new THREE.CircleGeometry(eyeH * 0.35, 16), new THREE.MeshBasicMaterial({ color: 0x000000 })); pupil.position.z = 2; eg.add(pupil)
-      
+    // ── HOOD RIM: Subtle edge glow
+    const rimGeoMat = new THREE.MeshBasicMaterial({ color: ec, transparent: true, opacity: 0.12 })
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(62, 2.5, 16, 48, Math.PI), rimGeoMat)
+    rim.position.set(cx, by + 225, -5); rim.rotation.x = Math.PI / 2; scene.add(rim)
+
+    // ── EYES: Detailed, menacing, human-like
+    const eyeW = 38, eyeH = 14
+    const eyePositions = [[-32, by + 232, 46], [32, by + 232, 46]]
+
+    eyePositions.forEach(([ox, oy, oz], i) => {
+      const eg = new THREE.Group()
+      eg.position.set(ox, oy, oz)
+      if (i === 1) eg.scale.x = -1
+
+      // Eye socket shadow (dark recess)
+      const socketShape = new THREE.Shape()
+      socketShape.moveTo(-eyeW/2 - 6, 0)
+      socketShape.quadraticCurveTo(0, eyeH + 8, eyeW/2 + 6, 0)
+      socketShape.quadraticCurveTo(0, -eyeH * 0.6, -eyeW/2 - 6, 0)
+      const socket = new THREE.Mesh(
+        new THREE.ShapeGeometry(socketShape),
+        new THREE.MeshBasicMaterial({ color: 0x050000 })
+      )
+      socket.position.z = -1; eg.add(socket)
+
+      // Eye white (sclera) — very dark, barely visible
+      const scleraShape = new THREE.Shape()
+      scleraShape.moveTo(-eyeW/2, 0)
+      scleraShape.quadraticCurveTo(0, eyeH, eyeW/2, 0)
+      scleraShape.quadraticCurveTo(0, -eyeH * 0.35, -eyeW/2, 0)
+      const sclera = new THREE.Mesh(
+        new THREE.ShapeGeometry(scleraShape),
+        new THREE.MeshBasicMaterial({ color: 0x1a0505 })
+      )
+      sclera.position.z = 0; eg.add(sclera)
+
+      // Iris — the main glowing colored part
+      const iris = new THREE.Mesh(
+        new THREE.CircleGeometry(eyeH * 0.7, 32),
+        new THREE.MeshBasicMaterial({ color: ec })
+      )
+      iris.position.set(2, 1, 1); eg.add(iris)
+
+      // Iris glow ring (outer)
+      const glowRing = new THREE.Mesh(
+        new THREE.RingGeometry(eyeH * 0.55, eyeH * 0.85, 32),
+        new THREE.MeshBasicMaterial({ color: ec, transparent: true, opacity: 0.4 })
+      )
+      glowRing.position.set(2, 1, 0.5); eg.add(glowRing)
+
+      // Pupil — sharp black center
+      const pupil = new THREE.Mesh(
+        new THREE.CircleGeometry(eyeH * 0.28, 20),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+      )
+      pupil.position.set(2, 1, 2); eg.add(pupil)
+
+      // Specular highlight (top-left glint)
+      const glint = new THREE.Mesh(
+        new THREE.CircleGeometry(2.5, 12),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
+      )
+      glint.position.set(-4, 4, 3); eg.add(glint)
+
+      // Second smaller glint
+      const glint2 = new THREE.Mesh(
+        new THREE.CircleGeometry(1.2, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 })
+      )
+      glint2.position.set(6, -2, 3); eg.add(glint2)
+
+      // Upper eyelid — gives the menacing squint
       const lidShape = new THREE.Shape()
-      lidShape.moveTo(-eyeW/2-5, eyeH+5).lineTo(eyeW/2+5, eyeH+5).lineTo(eyeW/2+5, eyeH*0.25).quadraticCurveTo(0, eyeH*0.9, -eyeW/2-5, eyeH*0.25)
-      const lid = new THREE.Mesh(new THREE.ShapeGeometry(lidShape), new THREE.MeshBasicMaterial({ color: 0x000000 })); lid.position.z = 3; eg.add(lid)
-      
-      const glint = new THREE.Mesh(new THREE.CircleGeometry(3, 12), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }))
-      glint.position.set(-8, 5, 4); eg.add(glint)
-      
+      lidShape.moveTo(-eyeW/2 - 4, eyeH + 6)
+      lidShape.lineTo(eyeW/2 + 4, eyeH + 6)
+      lidShape.lineTo(eyeW/2 + 4, eyeH * 0.45)
+      lidShape.quadraticCurveTo(0, eyeH * 0.7, -eyeW/2 - 4, eyeH * 0.45)
+      const lid = new THREE.Mesh(
+        new THREE.ShapeGeometry(lidShape),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+      )
+      lid.position.z = 4; eg.add(lid)
+
+      // Lower lid line
+      const lowerLid = new THREE.Shape()
+      lowerLid.moveTo(-eyeW/2 - 2, -eyeH * 0.5)
+      lowerLid.lineTo(eyeW/2 + 2, -eyeH * 0.5)
+      lowerLid.lineTo(eyeW/2 + 2, -eyeH * 0.15)
+      lowerLid.quadraticCurveTo(0, -eyeH * 0.3, -eyeW/2 - 2, -eyeH * 0.15)
+      const lLid = new THREE.Mesh(
+        new THREE.ShapeGeometry(lowerLid),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+      )
+      lLid.position.z = 4; eg.add(lLid)
+
       scene.add(eg)
     })
-    const branding = new THREE.Mesh(new THREE.BoxGeometry(60, 20, 2), new THREE.MeshStandardMaterial({ color: 0x000000 }))
-    branding.position.set(0, by + 100, 52); scene.add(branding)
   })
 }
 
@@ -282,6 +385,8 @@ export class PreludeScene extends Phaser.Scene {
     this.load.audio('callend', 'audio/callend.mp3')
     this.load.video('introscene', 'audio/introscene.mp4')
     this.load.audio('background', 'audio/background.mp3')
+    this.load.audio('rukozara', 'audio/Ruko-Jara.mp3')
+    this.load.audio('uthalerebaba', 'audio/uthalerebaba.mp3')
   }
   create() {
     this.W = this.scale.width; this.H = this.scale.height; this._clearScene(); this._buildAllTextures()
@@ -391,10 +496,10 @@ export class PreludeScene extends Phaser.Scene {
     // 6. VERTICALLY SEPARATED ZONED SPAWN (Anti-Overlap)
     this._charObjects = []
     const zones = [
-      { x: W * 0.5, y: H - 40 },       // Zone 1: ABSOLUTE BOTTOM (Divyansh)
-      { x: W * 0.2, y: floorY + 120 }, // Zone 2: UPPER LEFT
-      { x: W * 0.5, y: floorY + 120 }, // Zone 3: UPPER CENTER
-      { x: W * 0.8, y: floorY + 120 }  // Zone 4: UPPER RIGHT
+      { x: W * 0.5, y: H - 40 },        // Zone 1: ABSOLUTE BOTTOM (Divyansh)
+      { x: W * 0.18, y: floorY + 110 }, // Zone 2: UPPER LEFT
+      { x: W * 0.38, y: floorY + 125 }, // Zone 3: UPPER CENTER-LEFT (Shifted away from Divyansh)
+      { x: W * 0.82, y: floorY + 110 }  // Zone 4: UPPER RIGHT
     ]
 
     MEMBERS.forEach((m, i) => {
@@ -405,7 +510,20 @@ export class PreludeScene extends Phaser.Scene {
       
       const chair = this.add.image(rx + 20, ry + 10, 'chair').setOrigin(0.5, 1).setScale(scale).setAlpha(0).setDepth(ry)
       const char = this.add.image(rx, ry, `char_${i}`).setOrigin(0.5, 1).setScale(scale).setAlpha(0).setDepth(ry + 1)
+      
+      const firstName = m.name.split(' ')[0]
+      const nameTxt = this.add.text(rx, ry + 15, firstName.toUpperCase(), {
+        fontFamily: '"Rajdhani", "Arial", sans-serif', 
+        fontSize: '11px', 
+        fill: '#ffffff', 
+        letterSpacing: 1,
+        stroke: m.color, 
+        strokeThickness: 2
+      }).setOrigin(0.5, 0).setAlpha(0).setDepth(ry + 2)
+      nameTxt.setShadow(0, 1, '#000000', 3, true)
+
       this.tweens.add({ targets: [char, chair], alpha: 1, y: { from: ry + 20, to: ry }, duration: 800, delay: i * 200 + 300, ease: 'Power2.easeOut' })
+      this.tweens.add({ targets: nameTxt, alpha: 1, y: { from: ry + 35, to: ry + 15 }, duration: 800, delay: i * 200 + 300, ease: 'Power2.easeOut' })
       
       this._timer(2600 + i * 500, () => {
         // MAXIMUM SPEECH BUBBLE CLEARANCE
@@ -414,7 +532,7 @@ export class PreludeScene extends Phaser.Scene {
         this.tweens.add({ targets: bub, alpha: 1, y: bub.y - 15, duration: 500, ease: 'Back.out' })
         this._timer(3800, () => this.tweens.add({ targets: bub, alpha: 0, duration: 400, onComplete: () => bub.destroy() }))
       })
-      this._charObjects.push({ char, chair, x: rx, charY: ry, scale, name: m.name })
+      this._charObjects.push({ char, chair, nameTxt, x: rx, charY: ry, scale, name: m.name })
     })
     this._timer(7500, () => this._divyanshBreak())
   }
@@ -426,18 +544,28 @@ export class PreludeScene extends Phaser.Scene {
     this._timer(2200, () => {
       this.tweens.add({ targets: bub1, alpha: 0, duration: 300, onComplete: () => bub1.destroy() })
       this.sound.play('chalo')
-      this.tweens.add({ targets: [char, chair], x: -200, duration: 2000, ease: 'Power1.easeIn', onComplete: () => {
-        this._charObjects.slice(1).forEach((obj, idx) => {
-          this.tweens.add({ targets: [obj.char, obj.chair], alpha: 0, scale: 0, y: obj.charY - 100, duration: 400, delay: idx * 100, ease: 'Back.in' })
-        })
-        this._timer(1000, () => {
-          char.setVisible(true); chair.setVisible(true); char.setFlipX(true)
-          this.tweens.add({ targets: [char, chair], x: W * 0.25, duration: 1500, ease: 'Power1.easeOut', onComplete: () => {
-            this.sound.play('huh')
-            const emo = this._buildSpeechBubble(W * 0.25, charY - 260 * scale, '!', 0xff0000).setAlpha(0).setDepth(5000)
-            this.tweens.add({ targets: emo, alpha: 1, scale: 1.4, duration: 400, ease: 'Back.out' })
-            this._timer(1200, () => { emo.destroy(); this._triggerKidnap() })
-          }})
+      
+      // Move Divyansh (and his name tag) out of the scene
+      this.tweens.add({ targets: [char, chair, divObj.nameTxt], x: -200, duration: 2000, ease: 'Power1.easeIn', onComplete: () => {
+        
+        // After Divyansh is completely out, play utha le re baba
+        this.sound.play('uthalerebaba')
+
+        // Then wait for the audio to play a bit (e.g. 1.2s) before making seniors disappear
+        this._timer(1200, () => {
+          this._charObjects.slice(1).forEach((obj, idx) => {
+            this.tweens.add({ targets: [obj.char, obj.chair, obj.nameTxt], alpha: 0, scale: 0, y: obj.charY - 100, duration: 400, delay: idx * 100, ease: 'Back.in' })
+          })
+          
+          this._timer(1000, () => {
+            char.setVisible(true); chair.setVisible(true); char.setFlipX(true)
+            this.tweens.add({ targets: [char, chair, divObj.nameTxt], x: W * 0.25, duration: 1500, ease: 'Power1.easeOut', onComplete: () => {
+              this.sound.play('huh')
+              const emo = this._buildSpeechBubble(W * 0.25, charY - 260 * scale, '!', 0xff0000).setAlpha(0).setDepth(5000)
+              this.tweens.add({ targets: emo, alpha: 1, scale: 1.4, duration: 400, ease: 'Back.out' })
+              this._timer(1200, () => { emo.destroy(); this._triggerKidnap() })
+            }})
+          })
         })
       }})
     })
@@ -479,9 +607,32 @@ export class PreludeScene extends Phaser.Scene {
   _phase3_phoneCall() {
     this._ringTone = this.sound.add('phone', { loop: true }); this._ringTone.play()
     this._clearScene(); const { W, H } = this; this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0).setDepth(0)
-    const hacker = this.add.image(W / 2, H / 2, 'hacker_red').setOrigin(0.5).setAlpha(0).setDepth(3).setScale(1.2)
-    const csiText = this.add.text(W / 2, H / 2 + 80, 'CSI', { fontFamily: '"Rajdhani", sans-serif', fontSize: '56px', fontStyle: 'bold', fill: '#ff0000' }).setOrigin(0.5).setDepth(4).setAlpha(0)
-    this.tweens.add({ targets: [hacker], alpha: 1, duration: 3000, ease: 'Power2', onComplete: () => {
+
+    // Subtle dark red ambient particles floating upward
+    this.time.addEvent({
+      delay: 200, loop: true,
+      callback: () => {
+        const p = this.add.circle(
+          Phaser.Math.Between(0, W), H + 10,
+          Phaser.Math.FloatBetween(0.5, 2), 0xff0000,
+          Phaser.Math.FloatBetween(0.03, 0.08)
+        ).setDepth(1)
+        this.tweens.add({
+          targets: p, y: -20, x: p.x + Phaser.Math.Between(-30, 30),
+          alpha: 0, duration: Phaser.Math.Between(4000, 7000),
+          onComplete: () => p.destroy()
+        })
+      }
+    })
+
+    const hacker = this.add.image(W / 2, H / 2 - 30, 'hacker_red').setOrigin(0.5).setAlpha(0).setDepth(3).setScale(1.1)
+
+    // Eye glow effect — a pulsing red glow behind the hacker face area
+    const eyeGlow = this.add.circle(W / 2, H / 2 - 60, 50, 0xff0000, 0.06).setDepth(2)
+    this.tweens.add({ targets: eyeGlow, alpha: 0.12, scale: 1.3, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' })
+
+    const csiText = this.add.text(W / 2, H / 2 + 100, 'CSI', { fontFamily: '"Rajdhani", sans-serif', fontSize: '56px', fontStyle: 'bold', fill: '#ff0000' }).setOrigin(0.5).setDepth(4).setAlpha(0)
+    this.tweens.add({ targets: [hacker], alpha: 0.9, duration: 3000, ease: 'Power2', onComplete: () => {
       this.tweens.add({ targets: [csiText], alpha: 0.6, duration: 1500, ease: 'Sine.easeInOut' })
       this._timer(2000, () => this._spawnSlider(hacker, csiText))
     }})
@@ -550,6 +701,17 @@ export class PreludeScene extends Phaser.Scene {
       if (lineData.speaker === 'UNKNOWN CALLER') {
         this._activeYap = this.sound.add('yap', { volume: 1.2 })
         this._activeYap.play()
+      } else if (lineData.speaker === 'DIVYANSH' && idx === 3) {
+        this._rukoAudio = this.sound.add('rukozara', { volume: 1.5 })
+        this._rukoAudio.play()
+        
+        // Only play the first 2 seconds of the meme audio
+        this._timer(2000, () => {
+          if (this._rukoAudio && this._rukoAudio.isPlaying) {
+            this._rukoAudio.stop()
+            this._rukoAudio = null
+          }
+        })
       }
 
       isTyping = true; this._fillPokemonDialogue(panel, lineData, () => { 
@@ -564,6 +726,13 @@ export class PreludeScene extends Phaser.Scene {
 
   _endCall() { 
     const { W, H } = this; 
+    
+    // Ensure ruko zara stops when the call gets cut
+    if (this._rukoAudio && this._rukoAudio.isPlaying) {
+      this._rukoAudio.stop()
+      this._rukoAudio = null
+    }
+
     const t = this.add.text(W / 2, H / 2, 'CALL ENDED', { fontSize: '42px', fill: '#ff3333', fontStyle: 'bold', fontFamily: 'Impact' }).setOrigin(0.5).setDepth(100)
     this.cameras.main.shake(500, 0.01)
     
